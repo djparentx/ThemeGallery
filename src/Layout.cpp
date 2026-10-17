@@ -15,12 +15,12 @@ void Layout::compute(int width, int height) {
     footer = {0, h - px(34), w, px(34)};
 
     gap = px(12);
-    preview = {0, header.y + header.h + px(4), w, px(245)};
 
-    title = {margin, preview.y + preview.h + px(4), w - 2 * margin, px(30)};
-
-    int infoY = title.y + title.h + px(2);
-    info = {margin, infoY, w - 2 * margin, footer.y - px(6) - infoY};
+    // bottom-up: 2-row info box above the footer, title above it, preview band takes the rest
+    info = {margin, footer.y - px(6) - px(52), w - 2 * margin, px(52)};
+    title = {margin, info.y - px(2) - px(30), w - 2 * margin, px(30)};
+    int previewY = header.y + header.h + px(4);
+    preview = {0, previewY, w, title.y - px(4) - previewY};
 
     fontHeader = px(22);
     fontTitle  = px(20);

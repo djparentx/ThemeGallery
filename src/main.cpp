@@ -66,9 +66,16 @@ void outline(SDL_Renderer* r, const SDL_Rect& rc) {
     SDL_RenderDrawRect(r, &rc);
 }
 
-std::string firstLine(const std::string& s) {
-    size_t p = s.find('\n');
-    return p == std::string::npos ? s : s.substr(0, p) + " ...";
+// Trims s with "..." so it fits maxW pixels; removes whole UTF-8 characters
+std::string fitText(TTF_Font* f, const std::string& s, int maxW) {
+    if (textWidth(f, s) <= maxW) return s;
+    std::string t = s;
+    while (!t.empty()) {
+        while (!t.empty() && ((unsigned char)t.back() & 0xC0) == 0x80) t.pop_back();  // continuation bytes
+        if (!t.empty()) t.pop_back();                                                  // lead byte or ASCII
+        if (textWidth(f, t + "...") <= maxW) return t + "...";
+    }
+    return "";
 }
 
 float easeOut(float t) {
@@ -168,7 +175,6 @@ int main(int, char**) {
 
     const size_t n = gallery.themes.size();
     size_t cur = 0;
-    bool installed = false;
 
     // Image carousel state: positions are focus-relative, offset slides toward 0
     std::vector<Img> imgs;
@@ -198,7 +204,6 @@ int main(int, char**) {
         slideFrom = 0.0f;
         if (n == 0) return;
         const Theme& t = gallery.themes[cur];
-        installed = Paths::isDir(themesDir + "/" + t.folder);
         for (const auto& p : t.images) {
             Img im;
             im.tex = IMG_LoadTexture(ren, p.c_str());
@@ -309,23 +314,19 @@ int main(int, char**) {
             drawText(ren, fontTitle, t.name, lay.title.x + (lay.title.w - textWidth(fontTitle, t.name)) / 2,
                      lay.title.y + (lay.title.h - TTF_FontHeight(fontTitle)) / 2, COL_TEXT);
 
-            std::vector<std::string> lines = {
-                "Author: " + t.author,
-                "Folder: " + t.folder,
-                "Size: " + (t.size ? Util::formatBytes(t.size) : std::string("unknown")),
-                "Image: " + (imgs.empty() ? std::string("none")
-                                          : std::to_string(focus + 1) + "/" + std::to_string(imgs.size())),
-                std::string("Installed: ") + (installed ? "yes" : "no") +
-                    "   Favorite: " + (state.isFavorite(t.folder) ? "yes" : "no"),
-                themesDir + "   free " + Util::formatBytes(freeSpace),
-                firstLine(t.description)};
-            int ly = lay.info.y + lay.px(6);
-            int lh = TTF_FontLineSkip(fontBody);
-            for (const auto& l : lines) {
-                if (ly + lh > lay.info.y + lay.info.h) break;
-                drawText(ren, fontBody, l, lay.info.x + lay.px(8), ly, COL_TEXT);
-                ly += lh;
-            }
+            // 2-column info: Author / Folder left, Size / Location right
+            const int lh = TTF_FontLineSkip(fontBody);
+            const int pad = lay.px(8);
+            const int colW = lay.info.w / 2 - 2 * pad;
+            const int leftX = lay.info.x + pad;
+            const int rightX = lay.info.x + lay.info.w / 2 + pad;
+            const int row0 = lay.info.y + (lay.info.h - 2 * lh) / 2;
+            const std::string size = t.size ? Util::formatBytes(t.size) : std::string("unknown");
+            const std::string location = themesDir + " (" + Util::formatBytes(freeSpace) + " free)";
+            drawText(ren, fontBody, fitText(fontBody, "Author: " + t.author, colW), leftX, row0, COL_TEXT);
+            drawText(ren, fontBody, fitText(fontBody, "Folder: " + t.folder, colW), leftX, row0 + lh, COL_TEXT);
+            drawText(ren, fontBody, fitText(fontBody, "Size: " + size, colW), rightX, row0, COL_TEXT);
+            drawText(ren, fontBody, fitText(fontBody, "Location: " + location, colW), rightX, row0 + lh, COL_TEXT);
         }
 
         drawText(ren, fontSmall, "Up/Down theme    Left/Right image    Y favorite    Select+Start exit", lay.margin,
