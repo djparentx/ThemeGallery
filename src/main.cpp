@@ -13,17 +13,49 @@ namespace {
 const char* ES_SETTINGS_PATH = "/home/ark/.emulationstation/es_settings.cfg";
 const char* ES_INPUT_PATH    = "/etc/emulationstation/es_input.cfg";
 
-void drawText(SDL_Renderer* r, TTF_Font* f, const std::string& s, int x, int y, SDL_Color c) {
+void drawText(SDL_Renderer* r, TTF_Font* f, const std::string& s, int x, int y, SDL_Color c, bool noBlend = false) {
+    static bool loggedSurfFail = false, loggedTexFail = false, loggedCopyFail = false, loggedFormat = false;
     if (s.empty()) return;
+
     SDL_Surface* surf = TTF_RenderUTF8_Blended(f, s.c_str(), c);
-    if (!surf) return;
+    if (!surf) {
+        if (!loggedSurfFail) {
+            Log::error("diag", std::string("TTF_RenderUTF8_Blended: ") + TTF_GetError());
+            loggedSurfFail = true;
+        }
+        return;
+    }
+
     SDL_Texture* t = SDL_CreateTextureFromSurface(r, surf);
+    if (!t) {
+        if (!loggedTexFail) {
+            Log::error("diag", std::string("SDL_CreateTextureFromSurface: ") + SDL_GetError());
+            loggedTexFail = true;
+        }
+        SDL_FreeSurface(surf);
+        return;
+    }
+
+    if (!loggedFormat) {
+        Uint32 tf = 0;
+        SDL_BlendMode bm = SDL_BLENDMODE_NONE;
+        SDL_QueryTexture(t, &tf, nullptr, nullptr, nullptr);
+        SDL_GetTextureBlendMode(t, &bm);
+        Log::info("diag", std::string("surface ") + SDL_GetPixelFormatName(surf->format->format) + " " +
+                          std::to_string(surf->w) + "x" + std::to_string(surf->h) +
+                          "  texture " + SDL_GetPixelFormatName(tf) + "  blend " + std::to_string((int)bm));
+        loggedFormat = true;
+    }
+
+    if (noBlend) SDL_SetTextureBlendMode(t, SDL_BLENDMODE_NONE);
     SDL_Rect dst{x, y, surf->w, surf->h};
     SDL_FreeSurface(surf);
-    if (t) {
-        SDL_RenderCopy(r, t, nullptr, &dst);
-        SDL_DestroyTexture(t);
+
+    if (SDL_RenderCopy(r, t, nullptr, &dst) != 0 && !loggedCopyFail) {
+        Log::error("diag", std::string("SDL_RenderCopy: ") + SDL_GetError());
+        loggedCopyFail = true;
     }
+    SDL_DestroyTexture(t);
 }
 }
 
@@ -70,6 +102,10 @@ int main(int, char**) {
     int w = 0, h = 0;
     SDL_GetRendererOutputSize(ren, &w, &h);
     Log::info("video", std::string("renderer ") + ri.name + " " + std::to_string(w) + "x" + std::to_string(h));
+
+    for (Uint32 i = 0; i < ri.num_texture_formats; i++)
+        Log::info("video", std::string("texture format ") + SDL_GetPixelFormatName(ri.texture_formats[i]));
+    Log::info("video", "max texture " + std::to_string(ri.max_texture_width) + "x" + std::to_string(ri.max_texture_height));
 
     char* base = SDL_GetBasePath();
     std::string appDir = base ? base : "./";
@@ -130,6 +166,12 @@ int main(int, char**) {
 
         SDL_SetRenderDrawColor(ren, 11, 20, 36, 255);
         SDL_RenderClear(ren);
+
+ // DIAG: solid rect = primitive path, NO-BLEND text = texture path without alpha
+        SDL_Rect diagRect{w - w / 8, h / 20, w / 10, h / 10};
+        SDL_SetRenderDrawColor(ren, accent.r, accent.g, accent.b, 255);
+        SDL_RenderFillRect(ren, &diagRect);
+        drawText(ren, font, "NO-BLEND TEST", w / 20, h - h / 6, white, true);
 
         int x = w / 20, y = h / 20, lh = TTF_FontLineSkip(font);
         drawText(ren, font, "ThemeGallery - stage 1 test", x, y, accent); y += lh * 2;
