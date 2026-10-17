@@ -51,7 +51,10 @@ add_executable(ThemeGallery
   src/main.cpp
   src/Log.cpp
   src/EsSettings.cpp
-  src/Input.cpp)
+  src/Input.cpp
+  src/Config.cpp
+  src/Paths.cpp
+  src/Layout.cpp)
 
 target_compile_options(ThemeGallery PRIVATE -Wall -Wextra)
 target_link_libraries(ThemeGallery PRIVATE

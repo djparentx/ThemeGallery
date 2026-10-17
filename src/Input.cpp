@@ -1,5 +1,6 @@
 #include "Input.h"
 #include "Log.h"
+#include "Util.h"
 #include <algorithm>
 #include <cctype>
 
@@ -8,10 +9,7 @@ constexpr int    AXIS_DEADZONE = 16000;
 constexpr Uint32 REPEAT_DELAY  = 400;
 constexpr Uint32 REPEAT_RATE   = 120;
 
-std::string lower(std::string s) {
-    for (auto& c : s) c = (char)std::tolower((unsigned char)c);
-    return s;
-}
+using Util::lower;
 }
 
 const char* actionName(Action a) {

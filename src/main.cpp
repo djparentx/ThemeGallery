@@ -5,13 +5,22 @@
 #include <algorithm>
 #include <string>
 #include <vector>
+#include "Config.h"
 #include "EsSettings.h"
 #include "Input.h"
+#include "Layout.h"
 #include "Log.h"
+#include "Paths.h"
+#include "Util.h"
 
 namespace {
 const char* ES_SETTINGS_PATH = "/home/ark/.emulationstation/es_settings.cfg";
 const char* ES_INPUT_PATH    = "/etc/emulationstation/es_input.cfg";
+
+const SDL_Color COL_TEXT{235, 240, 250, 255};
+const SDL_Color COL_ACCENT{40, 160, 255, 255};
+const SDL_Color COL_DIM{140, 155, 180, 255};
+const SDL_Color COL_ERROR{255, 90, 90, 255};
 
 void drawText(SDL_Renderer* r, TTF_Font* f, const std::string& s, int x, int y, SDL_Color c) {
     static bool loggedFail = false;
@@ -37,6 +46,29 @@ void drawText(SDL_Renderer* r, TTF_Font* f, const std::string& s, int x, int y, 
     SDL_RenderCopy(r, t, nullptr, &dst);
     SDL_DestroyTexture(t);
 }
+
+int textWidth(TTF_Font* f, const std::string& s) {
+    int w = 0, h = 0;
+    TTF_SizeUTF8(f, s.c_str(), &w, &h);
+    return w;
+}
+
+// Largest rect with the texture's aspect that fits inside box, centered
+SDL_Rect fitRect(int tw, int th, const SDL_Rect& box) {
+    float s = std::min((float)box.w / tw, (float)box.h / th);
+    int w = (int)(tw * s), h = (int)(th * s);
+    return {box.x + (box.w - w) / 2, box.y + (box.h - h) / 2, w, h};
+}
+
+void outline(SDL_Renderer* r, const SDL_Rect& rc) {
+    SDL_SetRenderDrawColor(r, 40, 60, 90, 255);
+    SDL_RenderDrawRect(r, &rc);
+}
+
+std::string firstLine(const std::string& s) {
+    size_t p = s.find('\n');
+    return p == std::string::npos ? s : s.substr(0, p) + " ...";
+}
 }
 
 int main(int, char**) {
@@ -46,19 +78,13 @@ int main(int, char**) {
         Log::error("sdl", SDL_GetError());
         return 1;
     }
-    SDL_version sv;
-    SDL_GetVersion(&sv);
-    Log::info("sdl", "SDL " + std::to_string(sv.major) + "." + std::to_string(sv.minor) + "." + std::to_string(sv.patch));
-
     if (TTF_Init() != 0) {
         Log::error("ttf", TTF_GetError());
         return 1;
     }
     int imgFlags = IMG_INIT_PNG | IMG_INIT_JPG;
     if ((IMG_Init(imgFlags) & imgFlags) != imgFlags) Log::warn("image", IMG_GetError());
-
     curl_global_init(CURL_GLOBAL_DEFAULT);
-    Log::info("curl", curl_version());
 
     SDL_DisplayMode dm;
     if (SDL_GetCurrentDisplayMode(0, &dm) != 0) {
@@ -77,40 +103,40 @@ int main(int, char**) {
     }
     SDL_ShowCursor(SDL_DISABLE);
 
-    SDL_RendererInfo ri;
-    SDL_GetRendererInfo(ren, &ri);
     int w = 0, h = 0;
     SDL_GetRendererOutputSize(ren, &w, &h);
-    Log::info("video", std::string("renderer ") + ri.name + " " + std::to_string(w) + "x" + std::to_string(h));
+    Layout lay;
+    lay.compute(w, h);
+    Log::info("layout", std::to_string(w) + "x" + std::to_string(h) + "  scale " + std::to_string(lay.scale));
 
-    char* base = SDL_GetBasePath();
-    std::string appDir = base ? base : "./";
-    SDL_free(base);
-
-    std::string fontPath = appDir + "fonts/Exo2-Regular.ttf";
-    TTF_Font* font = TTF_OpenFont(fontPath.c_str(), std::max(12, h / 18));
-    if (!font) {
-        Log::error("ttf", fontPath + ": " + TTF_GetError());
+    const std::string appDir = Paths::appDir();
+    const std::string semi = appDir + "fonts/Exo2-SemiBold.ttf";
+    const std::string reg  = appDir + "fonts/Exo2-Regular.ttf";
+    TTF_Font* fontHeader = TTF_OpenFont(semi.c_str(), lay.fontHeader);
+    TTF_Font* fontTitle  = TTF_OpenFont(semi.c_str(), lay.fontTitle);
+    TTF_Font* fontBody   = TTF_OpenFont(reg.c_str(), lay.fontBody);
+    TTF_Font* fontSmall  = TTF_OpenFont(reg.c_str(), lay.fontSmall);
+    if (!fontHeader || !fontTitle || !fontBody || !fontSmall) {
+        Log::error("ttf", TTF_GetError());
         return 1;
     }
 
     EsSettings es;
     es.load(ES_SETTINGS_PATH);
-    Log::info("settings", std::string("InvertButtons=") + (es.invertButtons ? "true" : "false") + "  ThemeSet=" + es.themeSet);
-
     EsInputFile esInput;
     esInput.load(ES_INPUT_PATH);
     Input input;
     if (!input.open(esInput, es.invertButtons)) {
         SDL_SetRenderDrawColor(ren, 11, 20, 36, 255);
         SDL_RenderClear(ren);
-        int lh = TTF_FontLineSkip(font);
-        drawText(ren, font, "Controller setup failed", w / 20, h / 20, SDL_Color{255, 90, 90, 255});
-        drawText(ren, font, "See ThemeGallery.log", w / 20, h / 20 + lh, SDL_Color{235, 240, 250, 255});
+        drawText(ren, fontBody, "Controller setup failed - see ThemeGallery.log", lay.margin, lay.margin, COL_ERROR);
         SDL_RenderPresent(ren);
         SDL_Delay(5000);
         input.close();
-        TTF_CloseFont(font);
+        TTF_CloseFont(fontHeader);
+        TTF_CloseFont(fontTitle);
+        TTF_CloseFont(fontBody);
+        TTF_CloseFont(fontSmall);
         SDL_DestroyRenderer(ren);
         SDL_DestroyWindow(win);
         curl_global_cleanup();
@@ -120,11 +146,42 @@ int main(int, char**) {
         return 1;
     }
 
-    std::string lastAction = "-";
+    const std::string themesDir = Paths::selectThemesDir();
+    const uint64_t freeSpace = Paths::freeBytes(themesDir);
+    Log::info("paths", "free " + Util::formatBytes(freeSpace));
+
+    Gallery gallery;
+    gallery.load(appDir + "gallery.ini", appDir + "Images/");
+    const std::string statePath = appDir + "themegallery.cfg";
+    UserState state;
+    state.load(statePath);
+
+    const size_t n = gallery.themes.size();
+    size_t cur = 0;
+    SDL_Texture* preview = nullptr;
+    int pw = 0, ph = 0;
+    bool installed = false;
+
+    auto refresh = [&]() {
+        if (preview) {
+            SDL_DestroyTexture(preview);
+            preview = nullptr;
+        }
+        if (n == 0) return;
+        const Theme& t = gallery.themes[cur];
+        installed = Paths::isDir(themesDir + "/" + t.folder);
+        if (t.images.empty()) return;
+        preview = IMG_LoadTexture(ren, t.images[0].c_str());
+        if (!preview) {
+            Log::warn("image", t.images[0] + ": " + IMG_GetError());
+            return;
+        }
+        SDL_QueryTexture(preview, nullptr, nullptr, &pw, &ph);
+    };
+    refresh();
+
     std::vector<Action> actions;
     bool running = true;
-    const SDL_Color white{235, 240, 250, 255};
-    const SDL_Color accent{40, 160, 255, 255};
 
     while (running) {
         actions.clear();
@@ -135,29 +192,82 @@ int main(int, char**) {
         }
         input.update(actions);
         for (Action a : actions) {
-            lastAction = actionName(a);
-            Log::info("input", std::string("action ") + lastAction);
             if (a == Action::Exit) running = false;
+            if (n == 0) continue;
+            if (a == Action::Down) {
+                cur = (cur + 1) % n;
+                refresh();
+            } else if (a == Action::Up) {
+                cur = (cur + n - 1) % n;
+                refresh();
+            } else if (a == Action::Y) {
+                state.toggleFavorite(gallery.themes[cur].folder);
+                state.save(statePath);
+            }
         }
 
         SDL_SetRenderDrawColor(ren, 11, 20, 36, 255);
         SDL_RenderClear(ren);
+        outline(ren, lay.header);
+        outline(ren, lay.preview);
+        outline(ren, lay.title);
+        outline(ren, lay.info);
+        outline(ren, lay.footer);
 
-        int x = w / 20, y = h / 20, lh = TTF_FontLineSkip(font);
-        drawText(ren, font, "ThemeGallery - stage 1 test", x, y, accent); y += lh * 2;
-        drawText(ren, font, "Resolution: " + std::to_string(w) + "x" + std::to_string(h), x, y, white); y += lh;
-        drawText(ren, font, std::string("Renderer: ") + ri.name, x, y, white); y += lh;
-        drawText(ren, font, "Pad: " + input.deviceName() + (input.mapped() ? "" : " (incomplete map)"), x, y, white); y += lh;
-        drawText(ren, font, std::string("InvertButtons: ") + (es.invertButtons ? "true" : "false"), x, y, white); y += lh;
-        drawText(ren, font, "ThemeSet: " + es.themeSet, x, y, white); y += lh;
-        drawText(ren, font, "Last action: " + lastAction, x, y, accent); y += lh * 2;
-        drawText(ren, font, "Select+Start to exit", x, y, white);
+        drawText(ren, fontHeader, "ThemeGallery", lay.margin,
+                 lay.header.y + (lay.header.h - TTF_FontHeight(fontHeader)) / 2, COL_ACCENT);
+
+        if (n == 0) {
+            drawText(ren, fontBody, "No themes in gallery.ini", lay.info.x + lay.px(8), lay.info.y + lay.px(6), COL_ERROR);
+        } else {
+            const Theme& t = gallery.themes[cur];
+
+            std::string counter = std::to_string(cur + 1) + "/" + std::to_string(n);
+            drawText(ren, fontSmall, counter, w - lay.margin - textWidth(fontSmall, counter),
+                     lay.header.y + (lay.header.h - TTF_FontHeight(fontSmall)) / 2, COL_DIM);
+
+            if (preview) {
+                SDL_Rect dst = fitRect(pw, ph, lay.preview);
+                SDL_RenderCopy(ren, preview, nullptr, &dst);
+            } else {
+                const std::string msg = "No preview";
+                drawText(ren, fontBody, msg, lay.preview.x + (lay.preview.w - textWidth(fontBody, msg)) / 2,
+                         lay.preview.y + (lay.preview.h - TTF_FontHeight(fontBody)) / 2, COL_DIM);
+            }
+
+            drawText(ren, fontTitle, t.name, lay.title.x + (lay.title.w - textWidth(fontTitle, t.name)) / 2,
+                     lay.title.y + (lay.title.h - TTF_FontHeight(fontTitle)) / 2, COL_TEXT);
+
+            std::vector<std::string> lines = {
+                "Author: " + t.author,
+                "Folder: " + t.folder,
+                "Size: " + (t.size ? Util::formatBytes(t.size) : std::string("unknown")),
+                "Images: " + std::to_string(t.images.size()),
+                std::string("Installed: ") + (installed ? "yes" : "no") +
+                    "   Favorite: " + (state.isFavorite(t.folder) ? "yes" : "no"),
+                themesDir + "   free " + Util::formatBytes(freeSpace),
+                firstLine(t.description)};
+            int ly = lay.info.y + lay.px(6);
+            int lh = TTF_FontLineSkip(fontBody);
+            for (const auto& l : lines) {
+                if (ly + lh > lay.info.y + lay.info.h) break;
+                drawText(ren, fontBody, l, lay.info.x + lay.px(8), ly, COL_TEXT);
+                ly += lh;
+            }
+        }
+
+        drawText(ren, fontSmall, "Up/Down theme    Y favorite    Select+Start exit", lay.margin,
+                 lay.footer.y + (lay.footer.h - TTF_FontHeight(fontSmall)) / 2, COL_DIM);
 
         SDL_RenderPresent(ren);
     }
 
+    if (preview) SDL_DestroyTexture(preview);
     input.close();
-    TTF_CloseFont(font);
+    TTF_CloseFont(fontHeader);
+    TTF_CloseFont(fontTitle);
+    TTF_CloseFont(fontBody);
+    TTF_CloseFont(fontSmall);
     SDL_DestroyRenderer(ren);
     SDL_DestroyWindow(win);
     curl_global_cleanup();
