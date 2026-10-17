@@ -1,0 +1,59 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+    container: debian:trixie
+
+    steps:
+      - name: Install build dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            build-essential cmake git ca-certificates \
+            libsdl2-dev libfreetype-dev libcurl4-openssl-dev
+
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build -j"$(nproc)"
+
+      - name: Package
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT=out/Tools
+          APP="$OUT/ThemeGallery"
+          mkdir -p "$APP/lib" "$APP/fonts" "$APP/Images"
+
+          cp build/ThemeGallery "$APP/"
+          strip "$APP/ThemeGallery"
+          cp dist/ThemeGallery.sh "$OUT/"
+          chmod +x "$OUT/ThemeGallery.sh" "$APP/ThemeGallery"
+          cp assets/fonts/Exo2-Regular.ttf assets/fonts/Exo2-SemiBold.ttf assets/fonts/OFL.txt "$APP/fonts/"
+
+          # Bundle every shared lib except core system, SDL2 and GPU/display libs (device provides those)
+          EXCLUDE='^(linux-vdso|ld-linux|libc\.so|libm\.so|libdl\.so|librt\.so|libpthread\.so|libresolv\.so|libstdc\+\+\.so|libgcc_s\.so|libSDL2-2\.0\.so|libEGL|libGLES|libGL\.so|libmali|libdrm|libgbm|libasound|libudev|libX|libxcb|libwayland|libdecor|libpulse)'
+          ldd build/ThemeGallery | awk '$2 == "=>" && $3 ~ /^\// {print $1, $3}' | while read -r soname path; do
+            if printf '%s\n' "$soname" | grep -Eq "$EXCLUDE"; then continue; fi
+            cp -L "$path" "$APP/lib/$soname"
+            strip --strip-unneeded "$APP/lib/$soname"
+          done
+          ls -l "$APP/lib"
+
+          # tar keeps exec bits; upload-artifact's zip does not
+          tar -C out -czf ThemeGallery-aarch64.tar.gz Tools
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ThemeGallery-aarch64
+          path: ThemeGallery-aarch64.tar.gz
