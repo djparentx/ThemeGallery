@@ -9,7 +9,6 @@
 #include <cstring>
 #include <dirent.h>
 #include <fstream>
-#include <strings.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -80,22 +79,43 @@ std::string unescapeNewlines(const std::string& s) {
     return out;
 }
 
+// Only images named by number (1.png, 2.jpg, ...) are used, ordered by that number
 std::vector<std::string> listImages(const std::string& dir) {
-    std::vector<std::string> out;
+    std::vector<std::pair<unsigned long, std::string>> found;
     DIR* d = opendir(dir.c_str());
-    if (!d) return out;
+    if (!d) {
+        Log::warn("config", "no image folder " + dir);
+        return {};
+    }
     while (dirent* e = readdir(d)) {
         std::string n = e->d_name;
         if (n.empty() || n[0] == '.') continue;
-        if (!Util::endsWithNoCase(n, ".png") && !Util::endsWithNoCase(n, ".jpg") &&
-            !Util::endsWithNoCase(n, ".jpeg")) continue;
+        size_t dot = n.rfind('.');
+        if (dot == std::string::npos) continue;
+        std::string ext = Util::lower(n.substr(dot));
+        if (ext != ".png" && ext != ".jpg" && ext != ".jpeg") continue;
+        std::string stem = n.substr(0, dot);
+        if (stem.empty() ||
+            !std::all_of(stem.begin(), stem.end(), [](char c) { return std::isdigit((unsigned char)c) != 0; })) {
+            Log::warn("config", "ignored image " + dir + "/" + n + " (name must be a number)");
+            continue;
+        }
         std::string full = dir + "/" + n;
         struct stat st;
-        if (stat(full.c_str(), &st) == 0 && S_ISREG(st.st_mode)) out.push_back(full);
+        if (stat(full.c_str(), &st) == 0 && S_ISREG(st.st_mode))
+            found.emplace_back(std::strtoul(stem.c_str(), nullptr, 10), full);
     }
     closedir(d);
-    std::sort(out.begin(), out.end(),
-              [](const std::string& a, const std::string& b) { return strcasecmp(a.c_str(), b.c_str()) < 0; });
+    std::stable_sort(found.begin(), found.end(),
+                     [](const auto& a, const auto& b) { return a.first < b.first; });
+    std::vector<std::string> out;
+    for (size_t i = 0; i < found.size(); i++) {
+        if (i > 0 && found[i].first == found[i - 1].first) {
+            Log::warn("config", "duplicate image number, ignored " + found[i].second);
+            continue;
+        }
+        out.push_back(found[i].second);
+    }
     return out;
 }
 

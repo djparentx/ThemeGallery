@@ -3,6 +3,7 @@
 #include <SDL_ttf.h>
 #include <curl/curl.h>
 #include <algorithm>
+#include <cmath>
 #include <string>
 #include <vector>
 #include "Config.h"
@@ -21,6 +22,13 @@ const SDL_Color COL_TEXT{235, 240, 250, 255};
 const SDL_Color COL_ACCENT{40, 160, 255, 255};
 const SDL_Color COL_DIM{140, 155, 180, 255};
 const SDL_Color COL_ERROR{255, 90, 90, 255};
+
+const Uint32 SLIDE_MS = 150;
+
+struct Img {
+    SDL_Texture* tex = nullptr;
+    int w = 0, h = 0;
+};
 
 void drawText(SDL_Renderer* r, TTF_Font* f, const std::string& s, int x, int y, SDL_Color c) {
     static bool loggedFail = false;
@@ -53,13 +61,6 @@ int textWidth(TTF_Font* f, const std::string& s) {
     return w;
 }
 
-// Largest rect with the texture's aspect that fits inside box, centered
-SDL_Rect fitRect(int tw, int th, const SDL_Rect& box) {
-    float s = std::min((float)box.w / tw, (float)box.h / th);
-    int w = (int)(tw * s), h = (int)(th * s);
-    return {box.x + (box.w - w) / 2, box.y + (box.h - h) / 2, w, h};
-}
-
 void outline(SDL_Renderer* r, const SDL_Rect& rc) {
     SDL_SetRenderDrawColor(r, 40, 60, 90, 255);
     SDL_RenderDrawRect(r, &rc);
@@ -68,6 +69,15 @@ void outline(SDL_Renderer* r, const SDL_Rect& rc) {
 std::string firstLine(const std::string& s) {
     size_t p = s.find('\n');
     return p == std::string::npos ? s : s.substr(0, p) + " ...";
+}
+
+float easeOut(float t) {
+    float u = 1.0f - t;
+    return 1.0f - u * u * u;
+}
+
+int wrapIndex(int i, int count) {
+    return ((i % count) + count) % count;
 }
 }
 
@@ -158,25 +168,48 @@ int main(int, char**) {
 
     const size_t n = gallery.themes.size();
     size_t cur = 0;
-    SDL_Texture* preview = nullptr;
-    int pw = 0, ph = 0;
     bool installed = false;
 
-    auto refresh = [&]() {
-        if (preview) {
-            SDL_DestroyTexture(preview);
-            preview = nullptr;
+    // Image carousel state: positions are focus-relative, offset slides toward 0
+    std::vector<Img> imgs;
+    int focus = 0;
+    float slideFrom = 0.0f;
+    Uint32 slideStart = 0;
+
+    auto slideOffset = [&]() -> float {
+        if (slideFrom == 0.0f) return 0.0f;
+        Uint32 el = SDL_GetTicks() - slideStart;
+        if (el >= SLIDE_MS) {
+            slideFrom = 0.0f;
+            return 0.0f;
         }
+        return slideFrom * (1.0f - easeOut((float)el / SLIDE_MS));
+    };
+
+    auto freeImages = [&]() {
+        for (auto& im : imgs)
+            if (im.tex) SDL_DestroyTexture(im.tex);
+        imgs.clear();
+    };
+
+    auto refresh = [&]() {
+        freeImages();
+        focus = 0;
+        slideFrom = 0.0f;
         if (n == 0) return;
         const Theme& t = gallery.themes[cur];
         installed = Paths::isDir(themesDir + "/" + t.folder);
-        if (t.images.empty()) return;
-        preview = IMG_LoadTexture(ren, t.images[0].c_str());
-        if (!preview) {
-            Log::warn("image", t.images[0] + ": " + IMG_GetError());
-            return;
+        for (const auto& p : t.images) {
+            Img im;
+            im.tex = IMG_LoadTexture(ren, p.c_str());
+            if (!im.tex) {
+                Log::warn("image", p + ": " + IMG_GetError());
+                continue;
+            }
+            SDL_QueryTexture(im.tex, nullptr, nullptr, &im.w, &im.h);
+            SDL_SetTextureBlendMode(im.tex, SDL_BLENDMODE_BLEND);  // JPGs have no alpha; needed for the fade
+            imgs.push_back(im);
         }
-        SDL_QueryTexture(preview, nullptr, nullptr, &pw, &ph);
     };
     refresh();
 
@@ -200,6 +233,13 @@ int main(int, char**) {
             } else if (a == Action::Up) {
                 cur = (cur + n - 1) % n;
                 refresh();
+            } else if ((a == Action::Right || a == Action::Left) && imgs.size() > 1) {
+                const int count = (int)imgs.size();
+                const float dir = (a == Action::Right) ? 1.0f : -1.0f;
+                const float off = slideOffset();
+                focus = wrapIndex(focus + (int)dir, count);
+                slideFrom = off + dir;  // new focus starts where it was drawn, slides to center
+                slideStart = SDL_GetTicks();
             } else if (a == Action::Y) {
                 state.toggleFavorite(gallery.themes[cur].folder);
                 state.save(statePath);
@@ -209,7 +249,6 @@ int main(int, char**) {
         SDL_SetRenderDrawColor(ren, 11, 20, 36, 255);
         SDL_RenderClear(ren);
         outline(ren, lay.header);
-        outline(ren, lay.preview);
         outline(ren, lay.title);
         outline(ren, lay.info);
         outline(ren, lay.footer);
@@ -226,13 +265,45 @@ int main(int, char**) {
             drawText(ren, fontSmall, counter, w - lay.margin - textWidth(fontSmall, counter),
                      lay.header.y + (lay.header.h - TTF_FontHeight(fontSmall)) / 2, COL_DIM);
 
-            if (preview) {
-                SDL_Rect dst = fitRect(pw, ph, lay.preview);
-                SDL_RenderCopy(ren, preview, nullptr, &dst);
-            } else {
+            if (imgs.empty()) {
                 const std::string msg = "No preview";
-                drawText(ren, fontBody, msg, lay.preview.x + (lay.preview.w - textWidth(fontBody, msg)) / 2,
+                drawText(ren, fontBody, msg, (w - textWidth(fontBody, msg)) / 2,
                          lay.preview.y + (lay.preview.h - TTF_FontHeight(fontBody)) / 2, COL_DIM);
+            } else {
+                const int count = (int)imgs.size();
+                const int bandH = lay.preview.h;
+                const int maxW = w - 2 * lay.margin;
+                auto sizeOf = [&](const Img& im) {
+                    int iw = std::min(maxW, bandH * im.w / im.h);
+                    return SDL_Point{iw, iw * im.h / im.w};
+                };
+                int slot = 0;
+                for (const auto& im : imgs) slot = std::max(slot, sizeOf(im).x);
+                const int step = slot + lay.gap;
+                const float off = slideOffset();
+                const int cx = w / 2, cy = lay.preview.y + bandH / 2;
+                const int span = count > 1 ? 2 : 0;
+
+                // pass 0: side images, pass 1: focus slot, so focus is drawn on top
+                for (int pass = 0; pass < 2; pass++) {
+                    for (int r = -span; r <= span; r++) {
+                        if ((pass == 1) != (r == 0)) continue;
+                        const int idx = wrapIndex(focus + r, count);
+                        if (r != 0 && idx == focus) continue;  // never repeat the focused image beside itself
+                        const Img& im = imgs[idx];
+                        const float pos = r + off;
+                        const SDL_Point sz = sizeOf(im);
+                        SDL_Rect dst{cx + (int)std::lround(pos * step) - sz.x / 2, cy - sz.y / 2, sz.x, sz.y};
+                        if (dst.x + dst.w < 0 || dst.x > w) continue;
+                        const float d = std::min(1.0f, std::fabs(pos));
+                        const Uint8 bright = (Uint8)(255 - 115 * d);
+                        const Uint8 alpha  = (Uint8)(255 - 55 * d);
+                        SDL_SetTextureColorMod(im.tex, bright, bright, bright);
+                        SDL_SetTextureAlphaMod(im.tex, alpha);
+                        SDL_RenderCopy(ren, im.tex, nullptr, &dst);
+                        if (r == 0) outline(ren, dst);
+                    }
+                }
             }
 
             drawText(ren, fontTitle, t.name, lay.title.x + (lay.title.w - textWidth(fontTitle, t.name)) / 2,
@@ -242,7 +313,8 @@ int main(int, char**) {
                 "Author: " + t.author,
                 "Folder: " + t.folder,
                 "Size: " + (t.size ? Util::formatBytes(t.size) : std::string("unknown")),
-                "Images: " + std::to_string(t.images.size()),
+                "Image: " + (imgs.empty() ? std::string("none")
+                                          : std::to_string(focus + 1) + "/" + std::to_string(imgs.size())),
                 std::string("Installed: ") + (installed ? "yes" : "no") +
                     "   Favorite: " + (state.isFavorite(t.folder) ? "yes" : "no"),
                 themesDir + "   free " + Util::formatBytes(freeSpace),
@@ -256,13 +328,13 @@ int main(int, char**) {
             }
         }
 
-        drawText(ren, fontSmall, "Up/Down theme    Y favorite    Select+Start exit", lay.margin,
+        drawText(ren, fontSmall, "Up/Down theme    Left/Right image    Y favorite    Select+Start exit", lay.margin,
                  lay.footer.y + (lay.footer.h - TTF_FontHeight(fontSmall)) / 2, COL_DIM);
 
         SDL_RenderPresent(ren);
     }
 
-    if (preview) SDL_DestroyTexture(preview);
+    freeImages();
     input.close();
     TTF_CloseFont(fontHeader);
     TTF_CloseFont(fontTitle);

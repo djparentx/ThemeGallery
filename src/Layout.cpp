@@ -14,9 +14,8 @@ void Layout::compute(int width, int height) {
     header = {0, 0, w, px(40)};
     footer = {0, h - px(34), w, px(34)};
 
-    int ph = px(196);
-    int pw = std::min(ph * w / h, w - 2 * margin);  // preview keeps the screen's aspect
-    preview = {(w - pw) / 2, header.y + header.h + px(4), pw, ph};
+    gap = px(12);
+    preview = {0, header.y + header.h + px(4), w, px(245)};
 
     title = {margin, preview.y + preview.h + px(4), w - 2 * margin, px(30)};
 
