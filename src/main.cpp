@@ -11,7 +11,7 @@
 
 namespace {
 const char* ES_SETTINGS_PATH = "/home/ark/.emulationstation/es_settings.cfg";
-const char* ES_INPUT_PATH    = "/home/ark/.emulationstation/es_input.cfg";
+const char* ES_INPUT_PATH    = "/etc/emulationstation/es_input.cfg";
 
 void drawText(SDL_Renderer* r, TTF_Font* f, const std::string& s, int x, int y, SDL_Color c) {
     if (s.empty()) return;
@@ -89,7 +89,24 @@ int main(int, char**) {
     EsInputFile esInput;
     esInput.load(ES_INPUT_PATH);
     Input input;
-    input.open(esInput, es.invertButtons);
+    if (!input.open(esInput, es.invertButtons)) {
+        SDL_SetRenderDrawColor(ren, 11, 20, 36, 255);
+        SDL_RenderClear(ren);
+        int lh = TTF_FontLineSkip(font);
+        drawText(ren, font, "Controller setup failed", w / 20, h / 20, SDL_Color{255, 90, 90, 255});
+        drawText(ren, font, "See ThemeGallery.log", w / 20, h / 20 + lh, SDL_Color{235, 240, 250, 255});
+        SDL_RenderPresent(ren);
+        SDL_Delay(5000);
+        input.close();
+        TTF_CloseFont(font);
+        SDL_DestroyRenderer(ren);
+        SDL_DestroyWindow(win);
+        curl_global_cleanup();
+        IMG_Quit();
+        TTF_Quit();
+        SDL_Quit();
+        return 1;
+    }
 
     std::string lastAction = "-";
     std::vector<Action> actions;
