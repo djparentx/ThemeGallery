@@ -26,6 +26,27 @@ void drawText(SDL_Renderer* r, TTF_Font* f, const std::string& s, int x, int y, 
         return;
     }
 
+    static bool loggedAlpha = false;
+    if (!loggedAlpha && surf->format->BytesPerPixel == 4) {
+        SDL_LockSurface(surf);
+        Uint32 amask = surf->format->Amask;
+        Uint8 ashift = surf->format->Ashift;
+        Uint32 maxA = 0;
+        int nonzero = 0;
+        for (int yy = 0; yy < surf->h; yy++) {
+            const Uint32* row = (const Uint32*)((const Uint8*)surf->pixels + yy * surf->pitch);
+            for (int xx = 0; xx < surf->w; xx++) {
+                Uint32 a = (row[xx] & amask) >> ashift;
+                if (a > maxA) maxA = a;
+                if (a) nonzero++;
+            }
+        }
+        SDL_UnlockSurface(surf);
+        Log::info("diag", "surface alpha max=" + std::to_string(maxA) + "  nonzero=" + std::to_string(nonzero) +
+                          "/" + std::to_string(surf->w * surf->h) + "  Ashift=" + std::to_string((int)ashift));
+        loggedAlpha = true;
+    }
+
     SDL_Texture* t = SDL_CreateTextureFromSurface(r, surf);
     if (!t) {
         if (!loggedTexFail) {
@@ -55,6 +76,30 @@ void drawText(SDL_Renderer* r, TTF_Font* f, const std::string& s, int x, int y, 
         Log::error("diag", std::string("SDL_RenderCopy: ") + SDL_GetError());
         loggedCopyFail = true;
     }
+    SDL_DestroyTexture(t);
+}
+
+// DIAG: uploads and draws a surface, then frees it (takes ownership)
+void diagDraw(SDL_Renderer* r, SDL_Surface* surf, int x, int y) {
+    static bool loggedFail = false;
+    if (!surf) {
+        if (!loggedFail) {
+            Log::error("diag", std::string("diag surface null: ") + SDL_GetError() + " / " + TTF_GetError());
+            loggedFail = true;
+        }
+        return;
+    }
+    SDL_Texture* t = SDL_CreateTextureFromSurface(r, surf);
+    SDL_Rect dst{x, y, surf->w, surf->h};
+    SDL_FreeSurface(surf);
+    if (!t) {
+        if (!loggedFail) {
+            Log::error("diag", std::string("diag texture null: ") + SDL_GetError());
+            loggedFail = true;
+        }
+        return;
+    }
+    SDL_RenderCopy(r, t, nullptr, &dst);
     SDL_DestroyTexture(t);
 }
 }
@@ -172,6 +217,13 @@ int main(int, char**) {
         SDL_SetRenderDrawColor(ren, accent.r, accent.g, accent.b, 255);
         SDL_RenderFillRect(ren, &diagRect);
         drawText(ren, font, "NO-BLEND TEST", w / 20, h - h / 6, white, true);
+
+        // DIAG: Shaded = 8-bit surface, no alpha; ABGR = Blended converted to GLES-native order before upload
+        diagDraw(ren, TTF_RenderUTF8_Shaded(font, "SHADED TEST", white, SDL_Color{11, 20, 36, 255}), w / 20, h - h / 3);
+        if (SDL_Surface* s = TTF_RenderUTF8_Blended(font, "ABGR TEST", white)) {
+            diagDraw(ren, SDL_ConvertSurfaceFormat(s, SDL_PIXELFORMAT_ABGR8888, 0), w / 2, h - h / 3);
+            SDL_FreeSurface(s);
+        }
 
         int x = w / 20, y = h / 20, lh = TTF_FontLineSkip(font);
         drawText(ren, font, "ThemeGallery - stage 1 test", x, y, accent); y += lh * 2;
