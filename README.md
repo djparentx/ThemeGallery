@@ -42,6 +42,7 @@ Themes are listed in `gallery.ini`. No code changes or rebuild needed.
 download = https://github.com/mistertomlinson/es-theme-colorful-v2/archive/refs/heads/main.zip
 images = colorful-v2
 author = mistertomlinson
+category = batocera
 size = 29.8M
 ```
 
@@ -51,12 +52,12 @@ size = 29.8M
 | `download` | yes      | GitHub archive zip URL (branch or tag) |
 | `images`   | no       | Subfolder of `Images/` holding the screenshots |
 | `author`   | no       | Shown under the title |
-| `size`     | no       | Download size for progress and time remaining. Bytes, or with `K`, `M` or `G` (1024-based), e.g. `29.8M` |
 | `category` | no       | `batocera` or `fcamod` (default). Batocera themes get a "b" badge. Unknown values are treated as `fcamod` |
+| `size`     | no       | Download size for progress and time remaining. Bytes, or with `K`, `M` or `G` (1024-based), e.g. `29.8M` |
 
 Supported download URLs:
 
-- `https://github.com/<owner>/<repo>/archive/refs/heads/<branch>.zip` installs as `<repo>-<branch>`
+- `https://github.com/<owner>/<repo>/archive/refs/heads/<branch>.zip` installs as `<repo>`
 - `https://github.com/<owner>/<repo>/archive/refs/tags/<tag>.zip` installs as `<repo>-<tag>` (a leading `v` before a digit is dropped, matching GitHub)
 
 Entries are skipped (and logged) if the URL is not one of the above, the name is a duplicate, or two entries would install to the same folder.

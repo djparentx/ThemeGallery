@@ -14,7 +14,7 @@
 
 namespace {
 
-// https://github.com/<owner>/<repo>/archive/refs/heads/<branch>.zip -> <repo>-<branch>
+// https://github.com/<owner>/<repo>/archive/refs/heads/<branch>.zip -> <repo>
 // https://github.com/<owner>/<repo>/archive/refs/tags/<tag>.zip     -> <repo>-<tag, leading v dropped before a digit>
 bool folderFromUrl(const std::string& url, std::string& folder) {
     const std::string prefix = "https://github.com/";
@@ -42,7 +42,11 @@ bool folderFromUrl(const std::string& url, std::string& folder) {
         return false;
     }
     if (repo.empty() || ref.empty()) return false;
-    if (isTag && ref.size() > 1 && ref[0] == 'v' && std::isdigit((unsigned char)ref[1])) ref.erase(0, 1);
+    if (!isTag) {  // branch archives install under the bare repo name
+        folder = repo;
+        return true;
+    }
+    if (ref.size() > 1 && ref[0] == 'v' && std::isdigit((unsigned char)ref[1])) ref.erase(0, 1);
     std::replace(ref.begin(), ref.end(), '/', '-');
     folder = repo + "-" + ref;
     return true;
