@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+enum class Category { Fcamod, Batocera };
 struct Theme {
     std::string name;                 // ini section name, shown as the title
     std::string download;             // GitHub archive zip URL
@@ -11,6 +12,7 @@ struct Theme {
     std::string author;
     std::string folder;               // install folder name derived from the URL
     uint64_t size = 0;                // bytes, 0 = unknown
+    Category category = Category::Fcamod;  // ini "category"; blank, missing or unknown = fcamod
     std::vector<std::string> images;  // full paths, sorted alphabetically
 };
 

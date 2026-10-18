@@ -216,7 +216,9 @@ void CarouselScreen::drawBadges(size_t theme, const SDL_Rect& r) {
     if (a.isCurrentTheme(theme)) {
         const SDL_Rect d{x, y, bs, bs};
         SDL_RenderCopy(a.ren, a.icons->star(false), nullptr, &d);
+        x += bs + gap;
     }
+    if (a.gallery.themes[theme].category == Category::Batocera) a.drawCategoryBadge(SDL_Rect{x, y, bs, bs}, false);
 }
 
 void CarouselScreen::field(int x, int y, int maxW, const std::string& label, const std::string& value,

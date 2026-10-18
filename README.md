@@ -7,7 +7,7 @@ Browse themes with screenshot previews, then install, reinstall or uninstall the
 
 - Carousel view with full-screen previews, or a compact list view with thumbnails
 - Multiple screenshots per theme, browsed left/right
-- Favorites, with an All / Favorites filter
+- Favorites and category filters (All / Favorites / Batocera / FCAMOD)
 - Download progress with size, speed and time remaining; cancel at any time
 - Installs to `/roms2/themes` when available, otherwise `/roms/themes`
 - Detects themes already installed in either location
@@ -27,11 +27,11 @@ A and B follow the EmulationStation **Switch A/B buttons** setting (`InvertButto
 | OK            | Install, or Set Theme / Reinstall / Uninstall if installed |
 | Back          | Close dialog / menu                            |
 | Y             | Add / remove favorite                          |
-| Start         | Menu: View Mode, Filter, Exit                  |
+| Start         | Menu: View Mode, Filter (All / Favorites / Batocera / FCAMOD), Exit |
 | Select + X    | Cancel a download in progress                  |
 | Select + Start| Exit immediately                               |
 
-Markers on the preview: green check = installed, red heart = favorite, gold star = current EmulationStation theme.
+Markers on the preview: green check = installed, red heart = favorite, gold star = current EmulationStation theme, white "b" = Batocera theme.
 
 ## Adding themes
 
@@ -52,6 +52,7 @@ size = 29.8M
 | `images`   | no       | Subfolder of `Images/` holding the screenshots |
 | `author`   | no       | Shown under the title |
 | `size`     | no       | Download size for progress and time remaining. Bytes, or with `K`, `M` or `G` (1024-based), e.g. `29.8M` |
+| `category` | no       | `batocera` or `fcamod` (default). Batocera themes get a "b" badge. Unknown values are treated as `fcamod` |
 
 Supported download URLs:
 

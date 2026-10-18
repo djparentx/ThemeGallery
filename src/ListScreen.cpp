@@ -135,7 +135,9 @@ void ListScreen::render(Uint32) {
         if (a.isCurrentTheme(idx)) {
             const SDL_Rect d{mx, tbox.y + mi, ms, ms};
             SDL_RenderCopy(a.ren, a.icons->star(true), nullptr, &d);
+            mx += ms + mi;
         }
+        if (t.category == Category::Batocera) a.drawCategoryBadge(SDL_Rect{mx, tbox.y + mi, ms, ms}, true);
 
         // name + author
         const int tx = row.x + L.px(6) + tw + L.px(10);

@@ -17,6 +17,7 @@ public:
     SDL_Texture* installed(bool small) const { return small ? installedSmall_ : installed_; }
     SDL_Texture* heart(bool small) const { return small ? heartSmall_ : heart_; }
     SDL_Texture* star(bool small) const { return small ? starSmall_ : star_; }
+    SDL_Texture* batocera(bool small) const { return small ? batoceraSmall_ : batocera_; }  // circle only
     SDL_Texture* arrow(Glyph g) const { return arrows_[(int)g]; }                  // Up..Right
     SDL_Texture* button(Glyph g) const { return buttons_[(int)g - (int)Glyph::A]; } // A..Y
 
@@ -28,6 +29,8 @@ private:
     SDL_Texture* heartSmall_ = nullptr;
     SDL_Texture* star_ = nullptr;
     SDL_Texture* starSmall_ = nullptr;
+    SDL_Texture* batocera_ = nullptr;
+    SDL_Texture* batoceraSmall_ = nullptr;
     SDL_Texture* arrows_[4] = {};
     SDL_Texture* buttons_[4] = {};
 

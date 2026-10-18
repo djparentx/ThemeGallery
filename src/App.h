@@ -30,6 +30,8 @@ struct Hint {
     std::string label;
 };
 
+enum class Filter { All, Favorites, Batocera, Fcamod };  // Start menu order
+
 class App {
 public:
     int run();  // 0 = normal exit, 3 = themes changed (launcher restarts ES), 1 = init failure
@@ -54,8 +56,9 @@ public:
     size_t visiblePos() const;
     size_t neighbor(int dir) const;  // theme dir steps from current in the visible list, wrapping
     void step(int dir) { current = neighbor(dir); }
-    bool favoritesOnly() const { return favoritesOnly_; }
-    bool setFilter(bool favoritesOnly);  // false = Favorites requested but none exist (ignored)
+    Filter filter() const { return filter_; }
+    bool setFilter(Filter f);  // false = nothing matches f (ignored)
+    static const char* filterName(Filter f);
 
     bool isInstalled(size_t theme) const { return theme < installedIn_.size() && !installedIn_[theme].empty(); }
     const std::vector<std::string>& installedIn(size_t theme) const { return installedIn_[theme]; }
@@ -90,6 +93,7 @@ public:
 
     void drawHeader(const std::string& counter);
     void drawFooter(const std::vector<Hint>& hints);
+    void drawCategoryBadge(const SDL_Rect& r, bool small);  // white circle with a black "b"
     SDL_Rect panelRect(int w, int h) const { return {(lay.w - w) / 2, (lay.h - h) / 2, w, h}; }
 
 private:
@@ -107,7 +111,7 @@ private:
     std::string statePath_;
     ViewMode pendingView_ = ViewMode::Carousel;
     bool hasPendingView_ = false;
-    bool favoritesOnly_ = false;
+    Filter filter_ = Filter::All;
     bool themesChanged_ = false;
     bool exitRequested_ = false;
 
@@ -121,7 +125,8 @@ private:
     void applyPending();
     void applyView(ViewMode v);
     void rebuildVisible();
-    size_t nextFavorite(size_t from) const;  // SIZE_MAX if none
+    bool matches(size_t theme, Filter f) const;
+    size_t nextMatch(size_t from, Filter f) const;  // SIZE_MAX if none
     void confirmUninstall(size_t theme);
     void setTheme(size_t theme);
     void startInstall(size_t theme);

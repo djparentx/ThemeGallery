@@ -138,6 +138,12 @@ bool Gallery::load(const std::string& iniPath, const std::string& imagesRoot) {
         if (key == "download")         cur->download = val;
         else if (key == "images")      cur->imagesDir = val;
         else if (key == "author")      cur->author = val;
+        else if (key == "category") {
+            const std::string c = Util::lower(val);
+            if (c == "batocera") cur->category = Category::Batocera;
+            else if (c.empty() || c == "fcamod") cur->category = Category::Fcamod;
+            else Log::warn("config", "[" + cur->name + "] unknown category '" + val + "', using fcamod");
+        }
         else if (key == "size") {
             if (!parseSize(val, cur->size))
                 Log::warn("config", "[" + cur->name + "] bad size '" + val + "', treated as unknown");

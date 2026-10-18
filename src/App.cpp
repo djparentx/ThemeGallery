@@ -273,32 +273,50 @@ size_t App::neighbor(int dir) const {
     return visible_[Util::wrapIndex((int)visiblePos() + dir, (int)visible_.size())];
 }
 
+bool App::matches(size_t theme, Filter f) const {
+    switch (f) {
+    case Filter::Favorites: return isFavorite(theme);
+    case Filter::Batocera:  return gallery.themes[theme].category == Category::Batocera;
+    case Filter::Fcamod:    return gallery.themes[theme].category == Category::Fcamod;
+    case Filter::All:       break;
+    }
+    return true;
+}
+
+const char* App::filterName(Filter f) {
+    switch (f) {
+    case Filter::Favorites: return "Favorites";
+    case Filter::Batocera:  return "Batocera";
+    case Filter::Fcamod:    return "FCAMOD";
+    case Filter::All:       break;
+    }
+    return "All";
+}
+
 void App::rebuildVisible() {
     visible_.clear();
     for (size_t i = 0; i < gallery.themes.size(); i++)
-        if (!favoritesOnly_ || isFavorite(i)) visible_.push_back(i);
+        if (matches(i, filter_)) visible_.push_back(i);
     if (!visible_.empty() && std::find(visible_.begin(), visible_.end(), current) == visible_.end())
         current = visible_.front();
 }
 
-size_t App::nextFavorite(size_t from) const {
+size_t App::nextMatch(size_t from, Filter f) const {
     const size_t n = gallery.themes.size();
     for (size_t k = 1; k <= n; k++) {
         const size_t i = (from + k) % n;
-        if (isFavorite(i)) return i;
+        if (matches(i, f)) return i;
     }
     return SIZE_MAX;
 }
 
-bool App::setFilter(bool fav) {
-    if (fav == favoritesOnly_) return true;
+bool App::setFilter(Filter f) {
+    if (f == filter_) return true;
     if (gallery.themes.empty()) return false;
-    if (fav) {
-        const size_t next = isFavorite(current) ? current : nextFavorite(current);
-        if (next == SIZE_MAX) return false;  // no favorites: ignore
-        current = next;
-    }
-    favoritesOnly_ = fav;
+    const size_t next = matches(current, f) ? current : nextMatch(current, f);
+    if (next == SIZE_MAX) return false;  // nothing matches: ignore
+    current = next;
+    filter_ = f;
     rebuildVisible();
     screen_->enter();
     return true;
@@ -308,13 +326,18 @@ void App::toggleFavorite(size_t theme) {
     const std::string& folder = gallery.themes[theme].folder;
     state.toggleFavorite(folder);
     state.save(statePath_);
-    if (!favoritesOnly_ || state.isFavorite(folder)) return;
-    // removed while filtering: move to the next favorite, or back to All if none remain
-    const size_t next = nextFavorite(theme);
-    if (next == SIZE_MAX) favoritesOnly_ = false;
+    if (filter_ != Filter::Favorites || state.isFavorite(folder)) return;
+    // removed while filtering favorites: move to the next one, or back to All if none remain
+    const size_t next = nextMatch(theme, Filter::Favorites);
+    if (next == SIZE_MAX) filter_ = Filter::All;
     else current = next;
     rebuildVisible();
     screen_->enter();
+}
+
+void App::drawCategoryBadge(const SDL_Rect& r, bool small) {
+    SDL_RenderCopy(ren, icons->batocera(small), nullptr, &r);
+    text->drawIn(small ? fonts.tiny : fonts.bodyBold, "b", r, SDL_Color{0, 0, 0, 255}, Align::Center);
 }
 
 void App::applyView(ViewMode v) {
@@ -405,17 +428,23 @@ void App::drawHeader(const std::string& counter) {
     if (!counter.empty())
         text->drawIn(fonts.small, counter, SDL_Rect{hd.x, hd.y, hd.w - lay.margin, hd.h}, Style::DIM, Align::Right);
 
-    if (favoritesOnly_) {
-        const std::string lbl = "Favorites";
+    if (filter_ != Filter::All) {
+        const std::string lbl = filterName(filter_);
         const int ms = lay.px(12);
+        const bool icon = filter_ != Filter::Fcamod;
         const int lw = text->width(fonts.small, lbl);
-        const int chipW = lay.px(7) + ms + lay.px(4) + lw + lay.px(8);
+        const int chipW = lay.px(7) + (icon ? ms + lay.px(4) : 0) + lw + lay.px(8);
         const int chipH = lay.px(20);
         const SDL_Rect chip{hd.w - lay.margin - cw - lay.px(10) - chipW, hd.y + (hd.h - chipH) / 2, chipW, chipH};
         Gfx::strokeRoundRect(ren, chip, chipH / 2, 1, Style::PANEL_BORDER);
-        const SDL_Rect hr{chip.x + lay.px(7), chip.y + (chipH - ms) / 2, ms, ms};
-        SDL_RenderCopy(ren, icons->heart(true), nullptr, &hr);
-        text->drawIn(fonts.small, lbl, SDL_Rect{hr.x + ms + lay.px(4), chip.y, lw, chipH}, Style::DIM, Align::Left);
+        int tx = chip.x + lay.px(7);
+        if (icon) {
+            const SDL_Rect ir{tx, chip.y + (chipH - ms) / 2, ms, ms};
+            if (filter_ == Filter::Favorites) SDL_RenderCopy(ren, icons->heart(true), nullptr, &ir);
+            else drawCategoryBadge(ir, true);
+            tx += ms + lay.px(4);
+        }
+        text->drawIn(fonts.small, lbl, SDL_Rect{tx, chip.y, lw, chipH}, Style::DIM, Align::Left);
     }
 
     SDL_SetRenderDrawColor(ren, Style::PANEL_BORDER.r, Style::PANEL_BORDER.g, Style::PANEL_BORDER.b, 255);

@@ -13,5 +13,5 @@ private:
     App& app_;
     int sel_ = 0;  // 0 View Mode, 1 Filter, 2 Exit
 
-    void change(int row);
+    void change(int row, int dir);
 };

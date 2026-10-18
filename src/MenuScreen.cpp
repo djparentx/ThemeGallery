@@ -7,13 +7,19 @@
 
 namespace {
 constexpr int ROWS = 3;
+constexpr int FILTERS = 4;  // All, Favorites, Batocera, FCAMOD
 }
 
-void MenuScreen::change(int row) {
-    if (row == 0)
+void MenuScreen::change(int row, int dir) {
+    if (row == 0) {
         app_.requestView(app_.state.view == ViewMode::Carousel ? ViewMode::List : ViewMode::Carousel);
-    else
-        app_.setFilter(!app_.favoritesOnly());  // Favorites with none saved is ignored
+        return;
+    }
+    // step through filters, skipping any that match no themes
+    for (int k = 1; k < FILTERS; k++) {
+        const Filter f = (Filter)Util::wrapIndex((int)app_.filter() + dir * k, FILTERS);
+        if (app_.setFilter(f)) return;
+    }
 }
 
 void MenuScreen::handle(Action a) {
@@ -25,11 +31,13 @@ void MenuScreen::handle(Action a) {
         sel_ = Util::wrapIndex(sel_ + 1, ROWS);
         break;
     case Action::Left:
+        if (sel_ < 2) change(sel_, -1);
+        break;
     case Action::Right:
-        if (sel_ < 2) change(sel_);
+        if (sel_ < 2) change(sel_, 1);
         break;
     case Action::Ok:
-        if (sel_ < 2) change(sel_);
+        if (sel_ < 2) change(sel_, 1);
         else app_.requestExit();
         break;
     case Action::Back:
@@ -60,10 +68,11 @@ void MenuScreen::render(Uint32) {
 
     const char* labels[ROWS] = {"View Mode", "Filter", "Exit"};
     const std::string values[ROWS] = {a.state.view == ViewMode::Carousel ? "Carousel" : "List",
-                                      a.favoritesOnly() ? "Favorites" : "All", ""};
+                                      App::filterName(a.filter()), ""};
     // fixed value column so the arrows don't jump when the value changes
     const int colW = std::max({a.text->width(a.fonts.body, "Carousel"), a.text->width(a.fonts.body, "List"),
-                               a.text->width(a.fonts.body, "Favorites"), a.text->width(a.fonts.body, "All")});
+                               a.text->width(a.fonts.body, "Favorites"), a.text->width(a.fonts.body, "Batocera"),
+                               a.text->width(a.fonts.body, "FCAMOD"), a.text->width(a.fonts.body, "All")});
     const int as = L.px(18) - 2 * L.px(2);  // arrow icon size
 
     for (int i = 0; i < ROWS; i++) {
