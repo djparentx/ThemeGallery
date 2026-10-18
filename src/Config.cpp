@@ -65,20 +65,6 @@ bool parseSize(const std::string& s, uint64_t& out) {
     return true;
 }
 
-std::string unescapeNewlines(const std::string& s) {
-    std::string out;
-    out.reserve(s.size());
-    for (size_t i = 0; i < s.size(); i++) {
-        if (s[i] == '\\' && i + 1 < s.size() && s[i + 1] == 'n') {
-            out += '\n';
-            i++;
-        } else {
-            out += s[i];
-        }
-    }
-    return out;
-}
-
 // Only images named by number (1.png, 2.jpg, ...) are used, ordered by that number
 std::vector<std::string> listImages(const std::string& dir) {
     std::vector<std::pair<unsigned long, std::string>> found;
@@ -152,7 +138,6 @@ bool Gallery::load(const std::string& iniPath, const std::string& imagesRoot) {
         if (key == "download")         cur->download = val;
         else if (key == "images")      cur->imagesDir = val;
         else if (key == "author")      cur->author = val;
-        else if (key == "description") cur->description = unescapeNewlines(val);
         else if (key == "size") {
             if (!parseSize(val, cur->size))
                 Log::warn("config", "[" + cur->name + "] bad size '" + val + "', treated as unknown");

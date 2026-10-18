@@ -18,6 +18,7 @@ set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
 set(SDL2IMAGE_BACKEND_STB ON  CACHE BOOL "" FORCE)
 set(SDL2IMAGE_PNG         ON  CACHE BOOL "" FORCE)
 set(SDL2IMAGE_JPG         ON  CACHE BOOL "" FORCE)
+set(SDL2IMAGE_SVG         ON  CACHE BOOL "" FORCE)
 set(SDL2IMAGE_AVIF        OFF CACHE BOOL "" FORCE)
 set(SDL2IMAGE_JXL         OFF CACHE BOOL "" FORCE)
 set(SDL2IMAGE_TIF         OFF CACHE BOOL "" FORCE)
@@ -54,7 +55,14 @@ add_executable(ThemeGallery
   src/Input.cpp
   src/Config.cpp
   src/Paths.cpp
-  src/Layout.cpp)
+  src/Layout.cpp
+  src/Gfx.cpp
+  src/TextCache.cpp
+  src/Icons.cpp
+  src/ImageCache.cpp
+  src/App.cpp
+  src/CarouselScreen.cpp
+  src/ListScreen.cpp)
 
 target_compile_options(ThemeGallery PRIVATE -Wall -Wextra)
 target_link_libraries(ThemeGallery PRIVATE

@@ -36,4 +36,13 @@ inline std::string formatBytes(uint64_t bytes) {
     return buf;
 }
 
+inline float easeOut(float t) {
+    float u = 1.0f - t;
+    return 1.0f - u * u * u;
+}
+
+inline int wrapIndex(int i, int count) {
+    return ((i % count) + count) % count;
+}
+
 }  // namespace Util

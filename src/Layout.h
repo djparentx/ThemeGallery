@@ -7,7 +7,8 @@ struct Layout {
     float scale = 1.0f;
     int margin = 0, gap = 0;
     SDL_Rect header{}, preview{}, title{}, info{}, footer{};  // preview = full-width band; images size to their own aspect
-    int fontHeader = 0, fontTitle = 0, fontBody = 0, fontSmall = 0;
+    int fontHeader = 0, fontTitle = 0, fontBody = 0, fontSmall = 0, fontTiny = 0;
+    int listRowH = 0, thumbH = 0;
 
     void compute(int width, int height);
     int px(float base) const;

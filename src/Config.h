@@ -9,7 +9,6 @@ struct Theme {
     std::string download;             // GitHub archive zip URL
     std::string imagesDir;            // subfolder of Images/
     std::string author;
-    std::string description;          // "\n" in the ini becomes a line break
     std::string folder;               // install folder name derived from the URL
     uint64_t size = 0;                // bytes, 0 = unknown
     std::vector<std::string> images;  // full paths, sorted alphabetically

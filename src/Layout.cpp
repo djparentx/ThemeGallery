@@ -26,4 +26,8 @@ void Layout::compute(int width, int height) {
     fontTitle  = px(20);
     fontBody   = px(15);
     fontSmall  = px(12);
+    fontTiny   = px(9);
+
+    listRowH = px(52);
+    thumbH   = px(40);
 }
