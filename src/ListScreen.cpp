@@ -20,46 +20,52 @@ void ListScreen::enter() {
 }
 
 void ListScreen::keepVisible() {
-    const size_t n = app_.gallery.themes.size();
+    const size_t n = app_.visibleCount();
     const size_t r = (size_t)rows();
     if (n <= r) {
         top_ = 0;
         return;
     }
-    if (app_.current < top_) top_ = app_.current;
-    else if (app_.current >= top_ + r) top_ = app_.current - r + 1;
+    const size_t pos = app_.visiblePos();
+    if (pos < top_) top_ = pos;
+    else if (pos >= top_ + r) top_ = pos - r + 1;
     top_ = std::min(top_, n - r);
 }
 
 void ListScreen::requestThumbs() {
-    const size_t n = app_.gallery.themes.size();
+    const size_t n = app_.visibleCount();
     if (n == 0) return;
     const size_t r = (size_t)rows();
     const size_t visEnd = std::min(n, top_ + r);
     const size_t from = top_ > r ? top_ - r : 0;
     const size_t to = std::min(n, top_ + 2 * r);
     std::vector<size_t> thumbs;
-    for (size_t i = top_; i < visEnd; i++) thumbs.push_back(i);  // visible rows first
+    for (size_t i = top_; i < visEnd; i++) thumbs.push_back(app_.visibleAt(i));  // visible rows first
     for (size_t i = from; i < to; i++)
-        if (i < top_ || i >= visEnd) thumbs.push_back(i);  // one page either side
+        if (i < top_ || i >= visEnd) thumbs.push_back(app_.visibleAt(i));  // one page either side
     app_.images->want({app_.current}, thumbs);  // keep current full so the carousel opens instantly
 }
 
 void ListScreen::handle(Action a) {
-    if (a == Action::Start) {  // TEMP stage 3: the Start menu replaces this in stage 4
-        app_.requestView(ViewMode::Carousel);
+    if (a == Action::Start) {
+        app_.openMenu();
         return;
     }
-    const size_t n = app_.gallery.themes.size();
-    if (n == 0) return;
-    if (a == Action::Down) {
-        app_.current = (app_.current + 1) % n;
-    } else if (a == Action::Up) {
-        app_.current = (app_.current + n - 1) % n;
-    } else if (a == Action::Y) {
+    if (app_.visibleCount() == 0) return;
+    switch (a) {
+    case Action::Down:
+        app_.step(1);
+        break;
+    case Action::Up:
+        app_.step(-1);
+        break;
+    case Action::Ok:
+        app_.openThemeActions();
+        return;
+    case Action::Y:
         app_.toggleFavorite(app_.current);
         return;
-    } else {
+    default:
         return;
     }
     keepVisible();
@@ -69,8 +75,8 @@ void ListScreen::handle(Action a) {
 void ListScreen::render(Uint32) {
     App& a = app_;
     const Layout& L = a.lay;
-    const size_t n = a.gallery.themes.size();
-    a.drawHeader(n ? std::to_string(a.current + 1) + "/" + std::to_string(n) : "");
+    const size_t n = a.visibleCount();
+    a.drawHeader(n ? std::to_string(a.visiblePos() + 1) + "/" + std::to_string(n) : "");
 
     const std::vector<Hint> hints = {{{Glyph::Up, Glyph::Down}, "Browse"},
                                      {{a.okGlyph()}, "Select"},
@@ -92,7 +98,7 @@ void ListScreen::render(Uint32) {
     const int radius = L.px(8);
 
     for (size_t i = 0; i < nRows && top_ + i < n; i++) {
-        const size_t idx = top_ + i;
+        const size_t idx = a.visibleAt(top_ + i);
         const Theme& t = a.gallery.themes[idx];
         const SDL_Rect row{ar.x, ar.y + (int)i * rh, rowW, rh - L.px(4)};
         if (idx == a.current) {

@@ -8,4 +8,5 @@ std::string selectThemesDir();                 // /roms2/themes if writable, els
 bool isDir(const std::string& path);
 bool writable(const std::string& dir);         // create + delete a test file
 uint64_t freeBytes(const std::string& path);   // 0 on error
+bool removeTree(const std::string& path);      // recursive delete, never follows symlinks; true if all removed
 }

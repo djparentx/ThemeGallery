@@ -62,7 +62,10 @@ add_executable(ThemeGallery
   src/ImageCache.cpp
   src/App.cpp
   src/CarouselScreen.cpp
-  src/ListScreen.cpp)
+  src/ListScreen.cpp
+  src/DialogScreen.cpp
+  src/MenuScreen.cpp
+  src/RemovingScreen.cpp)
 
 target_compile_options(ThemeGallery PRIVATE -Wall -Wextra)
 target_link_libraries(ThemeGallery PRIVATE

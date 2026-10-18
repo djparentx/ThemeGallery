@@ -2,11 +2,15 @@
 #include <SDL_image.h>
 #include <curl/curl.h>
 #include <algorithm>
+#include <cstdint>
 #include "CarouselScreen.h"
+#include "DialogScreen.h"
 #include "Gfx.h"
 #include "ListScreen.h"
 #include "Log.h"
+#include "MenuScreen.h"
 #include "Paths.h"
+#include "RemovingScreen.h"
 #include "Style.h"
 #include "Util.h"
 
@@ -35,11 +39,13 @@ int App::run() {
                 running = false;
                 break;
             }
-            screen_->handle(a);
-        }
-        if (hasPendingView_) {  // swapped here, never inside a screen's own handle()
-            hasPendingView_ = false;
-            applyView(pendingView_);
+            Screen* target = overlays_.empty() ? screen_.get() : overlays_.back().get();
+            target->handle(a);
+            applyPending();
+            if (exitRequested_) {
+                running = false;
+                break;
+            }
         }
         images->pump();
 
@@ -47,11 +53,32 @@ int App::run() {
         SDL_SetRenderDrawColor(ren, Style::BG.r, Style::BG.g, Style::BG.b, 255);
         SDL_RenderClear(ren);
         screen_->render(now);
+        for (auto& o : overlays_) {
+            SDL_SetRenderDrawColor(ren, 0, 0, 0, 150);
+            SDL_RenderFillRect(ren, nullptr);
+            o->render(now);
+        }
         SDL_RenderPresent(ren);
+        applyPending();  // overlays may finish during render (e.g. removal done)
         text->prune(now);
     }
     shutdown();
-    return 0;
+    return themesChanged_ ? 3 : 0;
+}
+
+void App::applyPending() {
+    for (; pendingPops_ > 0 && !overlays_.empty(); pendingPops_--) overlays_.pop_back();
+    pendingPops_ = 0;
+    std::vector<std::unique_ptr<Screen>> pushes = std::move(pendingPush_);
+    pendingPush_.clear();
+    for (auto& s : pushes) {
+        overlays_.push_back(std::move(s));
+        overlays_.back()->enter();  // pushes made here land next frame
+    }
+    if (hasPendingView_) {
+        hasPendingView_ = false;
+        applyView(pendingView_);
+    }
 }
 
 bool App::init() {
@@ -69,7 +96,7 @@ bool App::init() {
     const int imgFlags = IMG_INIT_PNG | IMG_INIT_JPG;
     if ((IMG_Init(imgFlags) & imgFlags) != imgFlags) Log::warn("image", IMG_GetError());
     curl_global_init(CURL_GLOBAL_DEFAULT);
-    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");  // linear filtering for scaled textures
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
 
     SDL_DisplayMode dm;
     if (SDL_GetCurrentDisplayMode(0, &dm) != 0) {
@@ -131,12 +158,12 @@ bool App::init() {
     }
 
     themesDir = Paths::selectThemesDir();
-    freeSpace = Paths::freeBytes(themesDir);
-    Log::info("paths", "free " + Util::formatBytes(freeSpace));
+    refreshFreeSpace();
     gallery.load(appDir + "gallery.ini", appDir + "Images/");
     statePath_ = appDir + "themegallery.cfg";
     state.load(statePath_);
     refreshInstalled();
+    rebuildVisible();
 
     images = std::make_unique<ImageCache>(ren, gallery, lay.preview.h, lay.thumbH);
     applyView(state.view);
@@ -144,8 +171,10 @@ bool App::init() {
 }
 
 void App::shutdown() {
+    overlays_.clear();  // a running removal joins its worker here
+    pendingPush_.clear();
     screen_.reset();
-    images.reset();  // joins the worker and frees textures before the renderer goes
+    images.reset();  // joins the decode worker and frees textures before the renderer goes
     icons.reset();
     text.reset();
     input_.close();
@@ -168,9 +197,64 @@ void App::refreshInstalled() {
         installed_[i] = Paths::isDir(themesDir + "/" + gallery.themes[i].folder);
 }
 
+void App::refreshFreeSpace() {
+    freeSpace = Paths::freeBytes(themesDir);
+    Log::info("paths", "free " + Util::formatBytes(freeSpace));
+}
+
+size_t App::visiblePos() const {
+    for (size_t i = 0; i < visible_.size(); i++)
+        if (visible_[i] == current) return i;
+    return 0;
+}
+
+size_t App::neighbor(int dir) const {
+    if (visible_.empty()) return current;
+    return visible_[Util::wrapIndex((int)visiblePos() + dir, (int)visible_.size())];
+}
+
+void App::rebuildVisible() {
+    visible_.clear();
+    for (size_t i = 0; i < gallery.themes.size(); i++)
+        if (!favoritesOnly_ || isFavorite(i)) visible_.push_back(i);
+    if (!visible_.empty() && std::find(visible_.begin(), visible_.end(), current) == visible_.end())
+        current = visible_.front();
+}
+
+size_t App::nextFavorite(size_t from) const {
+    const size_t n = gallery.themes.size();
+    for (size_t k = 1; k <= n; k++) {
+        const size_t i = (from + k) % n;
+        if (isFavorite(i)) return i;
+    }
+    return SIZE_MAX;
+}
+
+bool App::setFilter(bool fav) {
+    if (fav == favoritesOnly_) return true;
+    if (gallery.themes.empty()) return false;
+    if (fav) {
+        const size_t next = isFavorite(current) ? current : nextFavorite(current);
+        if (next == SIZE_MAX) return false;  // no favorites: ignore
+        current = next;
+    }
+    favoritesOnly_ = fav;
+    rebuildVisible();
+    screen_->enter();
+    return true;
+}
+
 void App::toggleFavorite(size_t theme) {
-    state.toggleFavorite(gallery.themes[theme].folder);
+    const std::string& folder = gallery.themes[theme].folder;
+    state.toggleFavorite(folder);
     state.save(statePath_);
+    if (!favoritesOnly_ || state.isFavorite(folder)) return;
+    // removed while filtering: move to the next favorite, or back to All if none remain
+    const size_t next = nextFavorite(theme);
+    if (next == SIZE_MAX) favoritesOnly_ = false;
+    else current = next;
+    rebuildVisible();
+    screen_->enter();
 }
 
 void App::applyView(ViewMode v) {
@@ -183,13 +267,83 @@ void App::applyView(ViewMode v) {
     }
 }
 
+void App::openMenu() {
+    pushOverlay(std::make_unique<MenuScreen>(*this));
+}
+
+void App::message(const std::string& title, const std::string& msg) {
+    DialogSpec spec;
+    spec.title = title;
+    spec.message = msg;
+    spec.buttons = {{"OK", nullptr}};
+    pushOverlay(std::make_unique<DialogScreen>(*this, std::move(spec)));
+}
+
+void App::openThemeActions() {
+    if (visible_.empty()) return;
+    const size_t theme = current;
+    const Theme& t = gallery.themes[theme];
+    DialogSpec spec;
+    spec.theme = theme;
+    if (!isInstalled(theme)) {
+        spec.title = "Install Theme";
+        spec.message = "Do you want to install \"" + t.name + "\"?";
+        spec.buttons = {{"Install", [this, theme] { startInstall(theme); }}, {"Cancel", nullptr}};
+        spec.showThumb = true;
+    } else {
+        spec.title = t.name;
+        spec.message = "Theme is already installed.";
+        spec.buttons = {{"Reinstall", [this, theme] { startInstall(theme); }},
+                        {"Uninstall", [this, theme] { confirmUninstall(theme); }}};
+        spec.style = ButtonStyle::List;
+    }
+    pushOverlay(std::make_unique<DialogScreen>(*this, std::move(spec)));
+}
+
+void App::confirmUninstall(size_t theme) {
+    const Theme& t = gallery.themes[theme];
+    if (t.folder == es.themeSet) {
+        message("Theme In Use",
+                "This theme is in use by EmulationStation. Select a different theme in ES before uninstalling.");
+        return;
+    }
+    DialogSpec spec;
+    spec.title = "Uninstall Theme";
+    spec.message = "Uninstall \"" + t.name + "\"? It will be deleted from " + themesDir + ".";
+    spec.buttons = {{"Uninstall", [this, theme] { pushOverlay(std::make_unique<RemovingScreen>(*this, theme)); }},
+                    {"Cancel", nullptr}};
+    spec.defaultButton = 1;  // destructive: Cancel is preselected
+    spec.theme = theme;
+    pushOverlay(std::make_unique<DialogScreen>(*this, std::move(spec)));
+}
+
+void App::startInstall(size_t) {
+    message("Coming Soon", "Downloads arrive in the next build.");  // TEMP until the download stage
+}
+
 void App::drawHeader(const std::string& counter) {
     const SDL_Rect& hd = lay.header;
     const int y = hd.y + (hd.h - TTF_FontHeight(fonts.header)) / 2;
     const int x = lay.margin + text->draw(fonts.header, "Theme", lay.margin, y, Style::TEXT);
     text->draw(fonts.header, "Gallery", x, y, Style::ACCENT);
+
+    const int cw = counter.empty() ? 0 : text->width(fonts.small, counter);
     if (!counter.empty())
         text->drawIn(fonts.small, counter, SDL_Rect{hd.x, hd.y, hd.w - lay.margin, hd.h}, Style::DIM, Align::Right);
+
+    if (favoritesOnly_) {
+        const std::string lbl = "Favorites";
+        const int ms = lay.px(12);
+        const int lw = text->width(fonts.small, lbl);
+        const int chipW = lay.px(7) + ms + lay.px(4) + lw + lay.px(8);
+        const int chipH = lay.px(20);
+        const SDL_Rect chip{hd.w - lay.margin - cw - lay.px(10) - chipW, hd.y + (hd.h - chipH) / 2, chipW, chipH};
+        Gfx::strokeRoundRect(ren, chip, chipH / 2, 1, Style::PANEL_BORDER);
+        const SDL_Rect hr{chip.x + lay.px(7), chip.y + (chipH - ms) / 2, ms, ms};
+        SDL_RenderCopy(ren, icons->heart(true), nullptr, &hr);
+        text->drawIn(fonts.small, lbl, SDL_Rect{hr.x + ms + lay.px(4), chip.y, lw, chipH}, Style::DIM, Align::Left);
+    }
+
     SDL_SetRenderDrawColor(ren, Style::PANEL_BORDER.r, Style::PANEL_BORDER.g, Style::PANEL_BORDER.b, 255);
     SDL_RenderDrawLine(ren, 0, hd.y + hd.h - 1, lay.w, hd.y + hd.h - 1);
 }
@@ -236,6 +390,8 @@ int App::glyph(Glyph g, int x, int cy, bool draw) {
 
 void App::drawFooter(const std::vector<Hint>& hints) {
     const SDL_Rect& f = lay.footer;
+    SDL_SetRenderDrawColor(ren, Style::BG.r, Style::BG.g, Style::BG.b, 255);
+    SDL_RenderFillRect(ren, &f);  // overlays draw their own footer over the dimmed one
     SDL_SetRenderDrawColor(ren, Style::PANEL_BORDER.r, Style::PANEL_BORDER.g, Style::PANEL_BORDER.b, 255);
     SDL_RenderDrawLine(ren, 0, f.y, lay.w, f.y);
 

@@ -4,6 +4,8 @@
 #include <cerrno>
 #include <cstring>
 #include <fcntl.h>
+#include <cstdio>
+#include <ftw.h>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
 #include <unistd.h>
@@ -60,6 +62,27 @@ uint64_t freeBytes(const std::string& path) {
         return 0;
     }
     return (uint64_t)sv.f_bavail * (uint64_t)sv.f_frsize;
+}
+
+namespace {
+thread_local int gRemoveFailures = 0;
+
+int removeEntry(const char* path, const struct stat*, int, struct FTW*) {
+    if (std::remove(path) != 0) {
+        Log::warn("paths", std::string("remove ") + path + ": " + std::strerror(errno));
+        gRemoveFailures++;
+    }
+    return 0;  // keep going
+}
+}  // namespace
+
+bool removeTree(const std::string& path) {
+    gRemoveFailures = 0;
+    if (nftw(path.c_str(), removeEntry, 16, FTW_DEPTH | FTW_PHYS) != 0) {
+        Log::warn("paths", "nftw " + path + ": " + std::strerror(errno));
+        return false;
+    }
+    return gRemoveFailures == 0;
 }
 
 }  // namespace Paths

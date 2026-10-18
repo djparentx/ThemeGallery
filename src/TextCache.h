@@ -2,6 +2,7 @@
 #include <SDL.h>
 #include <SDL_ttf.h>
 #include <string>
+#include <vector>
 #include <unordered_map>
 
 enum class Align { Left, Center, Right };
@@ -16,6 +17,7 @@ public:
 
     int width(TTF_Font* f, const std::string& s);
     std::string fit(TTF_Font* f, const std::string& s, int maxW);  // trims with "...", whole UTF-8 chars
+    std::vector<std::string> wrap(TTF_Font* f, const std::string& s, int maxW);  // word wrap
     // x is the left edge, center or right edge depending on a; returns drawn width
     int draw(TTF_Font* f, const std::string& s, int x, int y, SDL_Color c, Align a = Align::Left);
     int drawIn(TTF_Font* f, const std::string& s, const SDL_Rect& rc, SDL_Color c, Align a);  // vertically centered

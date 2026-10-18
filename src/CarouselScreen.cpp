@@ -12,14 +12,15 @@ constexpr Uint32 V_SLIDE_MS = 200;
 }
 
 void CarouselScreen::enter() {
+    focus_ = 0;
+    hFrom_ = 0.0f;
+    vDir_ = 0.0f;
     requestImages();
 }
 
 void CarouselScreen::requestImages() {
-    const size_t n = app_.gallery.themes.size();
-    if (n == 0) return;
-    const size_t cur = app_.current;
-    app_.images->want({cur, (cur + 1) % n, (cur + n - 1) % n}, {});
+    if (app_.visibleCount() == 0) return;
+    app_.images->want({app_.current, app_.neighbor(1), app_.neighbor(-1)}, {});
 }
 
 float CarouselScreen::hOffset(Uint32 now) {
@@ -33,11 +34,11 @@ float CarouselScreen::hOffset(Uint32 now) {
 }
 
 void CarouselScreen::handle(Action a) {
-    if (a == Action::Start) {  // TEMP stage 3: the Start menu replaces this in stage 4
-        app_.requestView(ViewMode::List);
+    if (a == Action::Start) {
+        app_.openMenu();
         return;
     }
-    const size_t n = app_.gallery.themes.size();
+    const size_t n = app_.visibleCount();
     if (n == 0) return;
     const Uint32 now = SDL_GetTicks();
     switch (a) {
@@ -46,7 +47,7 @@ void CarouselScreen::handle(Action a) {
         if (n < 2) break;
         prevTheme_ = app_.current;
         prevFocus_ = focus_;
-        app_.current = (a == Action::Down) ? (app_.current + 1) % n : (app_.current + n - 1) % n;
+        app_.step(a == Action::Down ? 1 : -1);
         vDir_ = (a == Action::Down) ? 1.0f : -1.0f;
         vStart_ = now;
         focus_ = 0;
@@ -64,6 +65,9 @@ void CarouselScreen::handle(Action a) {
         hStart_ = now;
         break;
     }
+    case Action::Ok:
+        app_.openThemeActions();
+        break;
     case Action::Y:
         app_.toggleFavorite(app_.current);
         break;
@@ -75,8 +79,8 @@ void CarouselScreen::handle(Action a) {
 void CarouselScreen::render(Uint32 now) {
     App& a = app_;
     const Layout& L = a.lay;
-    const size_t n = a.gallery.themes.size();
-    a.drawHeader(n ? std::to_string(a.current + 1) + "/" + std::to_string(n) : "");
+    const size_t n = a.visibleCount();
+    a.drawHeader(n ? std::to_string(a.visiblePos() + 1) + "/" + std::to_string(n) : "");
 
     if (n == 0) {
         a.text->drawIn(a.fonts.body, "No themes in gallery.ini", L.preview, Style::ERR, Align::Center);

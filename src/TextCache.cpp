@@ -107,3 +107,25 @@ void TextCache::prune(Uint32 now) {
     if (widths_.size() > 4000) widths_.clear();
     if (fits_.size() > 4000) fits_.clear();
 }
+
+std::vector<std::string> TextCache::wrap(TTF_Font* f, const std::string& s, int maxW) {
+    std::vector<std::string> lines;
+    std::string line;
+    size_t i = 0;
+    while (i < s.size()) {
+        size_t j = s.find(' ', i);
+        if (j == std::string::npos) j = s.size();
+        const std::string word = s.substr(i, j - i);
+        const std::string cand = line.empty() ? word : line + " " + word;
+        if (!line.empty() && width(f, cand) > maxW) {
+            lines.push_back(line);
+            line = word;
+        } else {
+            line = cand;
+        }
+        i = j + 1;
+    }
+    if (!line.empty()) lines.push_back(line);
+    for (auto& l : lines) l = fit(f, l, maxW);  // a single word wider than maxW gets trimmed
+    return lines;
+}
