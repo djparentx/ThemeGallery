@@ -28,6 +28,6 @@ void Layout::compute(int width, int height) {
     fontSmall  = px(12);
     fontTiny   = px(9);
 
-    listRowH = px(52);
-    thumbH   = px(40);
+    listRowH = px(92);
+    thumbH   = px(80);
 }
