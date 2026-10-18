@@ -11,6 +11,7 @@ Browse themes with screenshot previews, then install, reinstall or uninstall the
 - Download progress with size, speed and time remaining; cancel at any time
 - Installs to `/roms2/themes` when available, otherwise `/roms/themes`
 - Detects themes already installed in either location
+- Set any installed theme as the EmulationStation theme (applied on exit)
 - Restarts EmulationStation on exit when themes were added or removed
 - Works offline in browse-only mode
 - Supports 640x480, 854x480, 1024x768 and 1280x720
@@ -23,14 +24,14 @@ A and B follow the EmulationStation **Switch A/B buttons** setting (`InvertButto
 |---------------|------------------------------------------------|
 | Up / Down     | Previous / next theme (wraps around)           |
 | Left / Right  | Previous / next screenshot (carousel view)     |
-| OK            | Install, or Reinstall / Uninstall if installed |
+| OK            | Install, or Set Theme / Reinstall / Uninstall if installed |
 | Back          | Close dialog / menu                            |
 | Y             | Add / remove favorite                          |
 | Start         | Menu: View Mode, Filter, Exit                  |
 | Select + X    | Cancel a download in progress                  |
 | Select + Start| Exit immediately                               |
 
-Markers on the preview: green check = installed, red heart = favorite.
+Markers on the preview: green check = installed, red heart = favorite, gold star = current EmulationStation theme.
 
 ## Adding themes
 
@@ -95,7 +96,7 @@ Installs are safe to interrupt: the theme is downloaded and extracted into a tem
 
 Settings read from EmulationStation:
 
-- `/home/ark/.emulationstation/es_settings.cfg`: `InvertButtons`, `ThemeSet`
+- `/home/ark/.emulationstation/es_settings.cfg`: `InvertButtons`, `ThemeSet` (Set Theme writes `ThemeSet`)
 - `/etc/emulationstation/es_input.cfg`: controller mapping
 
 ## Requirements

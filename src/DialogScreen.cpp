@@ -12,11 +12,21 @@ void DialogScreen::handle(Action a) {
         return;
     }
     const bool row = spec_.style == ButtonStyle::Row;
+    auto move = [&](int dir) {
+        for (int k = 1; k <= n; k++) {
+            const int j = Util::wrapIndex(sel_ + dir * k, n);
+            if (!spec_.buttons[j].disabled) {
+                sel_ = j;
+                return;
+            }
+        }
+    };
     if ((row && a == Action::Left) || (!row && a == Action::Up)) {
-        sel_ = Util::wrapIndex(sel_ - 1, n);
+        move(-1);
     } else if ((row && a == Action::Right) || (!row && a == Action::Down)) {
-        sel_ = Util::wrapIndex(sel_ + 1, n);
+        move(1);
     } else if (a == Action::Ok) {
+        if (spec_.buttons[sel_].disabled) return;
         std::function<void()> action = spec_.buttons[sel_].action;
         app_.popOverlay();  // applied after this action, so the next dialog stacks on the right parent
         if (action) action();
@@ -90,8 +100,8 @@ void DialogScreen::render(Uint32) {
                 Gfx::fillRoundRect(a.ren, b, br, Style::HIGHLIGHT);
                 Gfx::strokeRoundRect(a.ren, b, br, std::max(1, L.px(1.5f)), Style::ACCENT);
             }
-            a.text->drawIn(a.fonts.body, label, SDL_Rect{b.x + L.px(12), b.y, b.w - L.px(12), b.h}, Style::TEXT,
-                           Align::Left);
+            a.text->drawIn(a.fonts.body, label, SDL_Rect{b.x + L.px(12), b.y, b.w - L.px(12), b.h},
+                           spec_.buttons[i].disabled ? Style::DIM : Style::TEXT, Align::Left);
         }
     }
 

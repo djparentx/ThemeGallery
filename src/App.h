@@ -59,6 +59,7 @@ public:
 
     bool isInstalled(size_t theme) const { return theme < installedIn_.size() && !installedIn_[theme].empty(); }
     const std::vector<std::string>& installedIn(size_t theme) const { return installedIn_[theme]; }
+    bool isCurrentTheme(size_t theme) const { return gallery.themes[theme].folder == es.themeSet; }
     bool isFavorite(size_t theme) const { return state.isFavorite(gallery.themes[theme].folder); }
     void toggleFavorite(size_t theme);
     void refreshInstalled();
@@ -122,6 +123,7 @@ private:
     void rebuildVisible();
     size_t nextFavorite(size_t from) const;  // SIZE_MAX if none
     void confirmUninstall(size_t theme);
+    void setTheme(size_t theme);
     void startInstall(size_t theme);
     std::string installTarget(size_t theme) const;  // existing (newest) copy's dir, else themesDir
     void cleanupLeftovers();

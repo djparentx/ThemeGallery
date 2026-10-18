@@ -130,6 +130,11 @@ void ListScreen::render(Uint32) {
         if (a.isFavorite(idx)) {
             const SDL_Rect d{mx, tbox.y + mi, ms, ms};
             SDL_RenderCopy(a.ren, a.icons->heart(true), nullptr, &d);
+            mx += ms + mi;
+        }
+        if (a.isCurrentTheme(idx)) {
+            const SDL_Rect d{mx, tbox.y + mi, ms, ms};
+            SDL_RenderCopy(a.ren, a.icons->star(true), nullptr, &d);
         }
 
         // name + author

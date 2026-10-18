@@ -6,6 +6,10 @@
 #include <fstream>
 #include <sstream>
 #include <utility>
+#include <cerrno>
+#include <cstdio>
+#include <sys/stat.h>
+#include <unistd.h>
 
 namespace {
 
@@ -90,6 +94,7 @@ std::string getAttr(const std::string& tag, const std::string& key) {
 }  // namespace
 
 bool EsSettings::load(const std::string& path) {
+    this->path = path;
     std::string text;
     if (!readFile(path, text)) {
         Log::warn("settings", "cannot read " + path);
@@ -102,6 +107,65 @@ bool EsSettings::load(const std::string& path) {
         if (n == "InvertButtons")  invertButtons = (getAttr(tag, "value") == "true");
         else if (n == "ThemeSet")  themeSet = getAttr(tag, "value");
     }
+    return true;
+}
+
+bool EsSettings::saveThemeSet(const std::string& value) {
+    std::string text;
+    if (path.empty() || !readFile(path, text)) {
+        Log::error("settings", "cannot read " + path);
+        return false;
+    }
+
+    std::string esc;
+    for (char c : value) {
+        switch (c) {
+        case '&': esc += "&amp;"; break;
+        case '<': esc += "&lt;"; break;
+        case '>': esc += "&gt;"; break;
+        case '"': esc += "&quot;"; break;
+        default: esc += c;
+        }
+    }
+    const std::string line = "<string name=\"ThemeSet\" value=\"" + esc + "\" />";
+
+    // replace the existing ThemeSet tag, or add one
+    bool replaced = false;
+    size_t pos = 0;
+    std::string tag;
+    while (nextTag(text, pos, tag)) {
+        if (getAttr(tag, "name") == "ThemeSet") {
+            text.replace(pos - tag.size(), tag.size(), line);
+            replaced = true;
+            break;
+        }
+    }
+    if (!replaced) {
+        const size_t close = text.rfind("</config>");
+        if (close != std::string::npos) text.insert(close, "\t" + line + "\n");
+        else text += (text.empty() || text.back() == '\n' ? "" : "\n") + line + "\n";
+    }
+
+    // write a temp file in the same directory, then rename over the original
+    const std::string tmp = path + ".tg_tmp";
+    FILE* f = std::fopen(tmp.c_str(), "wb");
+    if (!f) {
+        Log::error("settings", tmp + ": " + std::strerror(errno));
+        return false;
+    }
+    bool ok = std::fwrite(text.data(), 1, text.size(), f) == text.size();
+    ok = std::fflush(f) == 0 && ok;
+    ok = fsync(fileno(f)) == 0 && ok;
+    struct stat st;
+    if (stat(path.c_str(), &st) == 0) fchmod(fileno(f), st.st_mode & 07777);
+    ok = std::fclose(f) == 0 && ok;
+    if (!ok || std::rename(tmp.c_str(), path.c_str()) != 0) {
+        Log::error("settings", "cannot write " + path + ": " + std::strerror(errno));
+        std::remove(tmp.c_str());
+        return false;
+    }
+    themeSet = value;
+    Log::info("settings", "ThemeSet=" + value);
     return true;
 }
 

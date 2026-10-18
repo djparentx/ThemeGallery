@@ -211,6 +211,11 @@ void CarouselScreen::drawBadges(size_t theme, const SDL_Rect& r) {
     if (a.isFavorite(theme)) {
         const SDL_Rect d{x, y, bs, bs};
         SDL_RenderCopy(a.ren, a.icons->heart(false), nullptr, &d);
+        x += bs + gap;
+    }
+    if (a.isCurrentTheme(theme)) {
+        const SDL_Rect d{x, y, bs, bs};
+        SDL_RenderCopy(a.ren, a.icons->star(false), nullptr, &d);
     }
 }
 

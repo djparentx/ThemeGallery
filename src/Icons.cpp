@@ -15,6 +15,11 @@ const char* SVG_HEART =
     R"( C12.8 4.8 14.2 3.8 16 3.8 C18.8 3.8 21 6 21 8.9 C21 14.6 12 20.5 12 20.5 Z")"
     R"( fill="#ff3b5c" stroke="#0b1424" stroke-width="1"/></svg>)";
 
+const char* SVG_STAR =
+    R"(<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">)"
+    R"(<path d="M12 2.5 L14.9 8.6 L21.5 9.4 L16.6 13.9 L17.9 20.5 L12 17.2 L6.1 20.5 L7.4 13.9 L2.5 9.4 L9.1 8.6 Z")"
+    R"( fill="#ffc83d" stroke="#0b1424" stroke-width="1" stroke-linejoin="round"/></svg>)";
+
 std::string arrowSvg(const char* path) {
     return std::string(R"(<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d=")") +
            path + R"(" fill="none" stroke="#c8d2e6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>)";
@@ -27,7 +32,7 @@ std::string circleSvg(const char* color) {
 }  // namespace
 
 Icons::~Icons() {
-    for (SDL_Texture* t : {installed_, installedSmall_, heart_, heartSmall_})
+    for (SDL_Texture* t : {installed_, installedSmall_, heart_, heartSmall_, star_, starSmall_})
         if (t) SDL_DestroyTexture(t);
     for (SDL_Texture* t : arrows_)
         if (t) SDL_DestroyTexture(t);
@@ -55,6 +60,8 @@ void Icons::load(int badge, int smallBadge, int glyph, int arrow) {
     installedSmall_ = svg(SVG_INSTALLED, smallBadge, smallBadge);
     heart_          = svg(SVG_HEART, badge, badge);
     heartSmall_     = svg(SVG_HEART, smallBadge, smallBadge);
+    star_           = svg(SVG_STAR, badge, badge);
+    starSmall_      = svg(SVG_STAR, smallBadge, smallBadge);
 
     const char* paths[4] = {"M6 15 L12 9 L18 15", "M6 9 L12 15 L18 9", "M15 6 L9 12 L15 18", "M9 6 L15 12 L9 18"};
     for (int i = 0; i < 4; i++) arrows_[i] = svg(arrowSvg(paths[i]), arrow, arrow);

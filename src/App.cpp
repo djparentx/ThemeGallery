@@ -353,11 +353,24 @@ void App::openThemeActions() {
     } else {
         spec.title = t.name;
         spec.message = "Theme is already installed.";
-        spec.buttons = {{"Reinstall", [this, theme] { startInstall(theme); }},
+        const bool current = isCurrentTheme(theme);
+        spec.buttons = {{current ? "Current Theme" : "Set Theme", [this, theme] { setTheme(theme); }, current},
+                        {"Reinstall", [this, theme] { startInstall(theme); }},
                         {"Uninstall", [this, theme] { confirmUninstall(theme); }}};
+        spec.defaultButton = current ? 1 : 0;
         spec.style = ButtonStyle::List;
     }
     pushOverlay(std::make_unique<DialogScreen>(*this, std::move(spec)));
+}
+
+void App::setTheme(size_t theme) {
+    const Theme& t = gallery.themes[theme];
+    if (!es.saveThemeSet(t.folder)) {
+        message("Set Theme Failed", "Could not update " + es.path + ". See ThemeGallery.log.");
+        return;
+    }
+    markThemesChanged();  // exit code 3: ES restarts with the new theme
+    message("Theme Set", "\"" + t.name + "\" will be applied when you exit ThemeGallery.");
 }
 
 void App::confirmUninstall(size_t theme) {

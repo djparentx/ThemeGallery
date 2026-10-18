@@ -5,7 +5,9 @@
 struct EsSettings {
     bool invertButtons = false;
     std::string themeSet;
+    std::string path;  // set by load()
     bool load(const std::string& path);
+    bool saveThemeSet(const std::string& value);  // rewrites ThemeSet in the file; updates themeSet on success
 };
 
 enum class EsInputType { Button, Hat, Axis };

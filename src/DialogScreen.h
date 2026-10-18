@@ -11,6 +11,7 @@ enum class ButtonStyle { Row, List };
 struct DialogButton {
     std::string label;
     std::function<void()> action;  // empty = just close
+    bool disabled = false;  // shown greyed out, skipped by navigation
 };
 
 struct DialogSpec {
