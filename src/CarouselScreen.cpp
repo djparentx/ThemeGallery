@@ -183,7 +183,12 @@ void CarouselScreen::drawTheme(size_t theme, int focus, float hOff, int dy) {
     const int row0 = info.y + (info.h - 2 * lh) / 2;
     const int midX = info.x + info.w / 2;
     const std::string size = t.size ? Util::formatBytes(t.size) : "unknown";
-    const std::string location = a.themesDir + " (" + Util::formatBytes(a.freeSpace) + " free)";
+    std::string location;
+    if (a.isInstalled(theme)) {
+        for (const auto& d : a.installedIn(theme)) location += (location.empty() ? "" : ", ") + d;
+    } else {
+        location = a.themesDir + " (" + Util::formatBytes(a.freeSpace) + " free)";
+    }
     field(info.x + pad, row0, colW, "Author:", t.author, Style::ACCENT);
     field(info.x + pad, row0 + lh, colW, "Folder:", t.folder, Style::TEXT);
     field(midX + pad, row0, colW, "Size:", size, Style::TEXT);

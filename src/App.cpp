@@ -158,6 +158,7 @@ bool App::init() {
     }
 
     themesDir = Paths::selectThemesDir();
+    scanDirs_ = Paths::scanDirs(themesDir);
     refreshFreeSpace();
     gallery.load(appDir + "gallery.ini", appDir + "Images/");
     statePath_ = appDir + "themegallery.cfg";
@@ -192,9 +193,10 @@ void App::shutdown() {
 }
 
 void App::refreshInstalled() {
-    installed_.assign(gallery.themes.size(), false);
+    installedIn_.assign(gallery.themes.size(), {});
     for (size_t i = 0; i < gallery.themes.size(); i++)
-        installed_[i] = Paths::isDir(themesDir + "/" + gallery.themes[i].folder);
+        for (const auto& d : scanDirs_)
+            if (Paths::isDir(d + "/" + gallery.themes[i].folder)) installedIn_[i].push_back(d);
 }
 
 void App::refreshFreeSpace() {

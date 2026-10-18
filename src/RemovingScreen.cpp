@@ -22,8 +22,19 @@ RemovingScreen::~RemovingScreen() {
 void RemovingScreen::enter() {
     startMs_ = SDL_GetTicks();
     const std::string& folder = app_.gallery.themes[theme_].folder;
-    const std::string src = app_.themesDir + "/" + folder;
-    trash_ = app_.themesDir + "/.tg_old_" + folder + "_" + std::to_string((long long)std::time(nullptr));
+    // installed in more than one dir: remove the oldest copy
+    const std::vector<std::string>& dirs = app_.installedIn(theme_);
+    std::string dir = dirs.empty() ? app_.themesDir : dirs.front();
+    long long oldest = Paths::mtime(dir + "/" + folder);
+    for (size_t i = 1; i < dirs.size(); i++) {
+        const long long m = Paths::mtime(dirs[i] + "/" + folder);
+        if (m < oldest) {
+            oldest = m;
+            dir = dirs[i];
+        }
+    }
+    const std::string src = dir + "/" + folder;
+    trash_ = dir + "/.tg_old_" + folder + "_" + std::to_string((long long)std::time(nullptr));
     if (std::rename(src.c_str(), trash_.c_str()) != 0) {
         error_ = std::strerror(errno);
         Log::error("remove", src + ": " + error_);
@@ -32,7 +43,7 @@ void RemovingScreen::enter() {
         return;
     }
     app_.markThemesChanged();  // the theme is gone from ES's view now, even if we exit mid-delete
-    Log::info("remove", "uninstalling " + folder);
+    Log::info("remove", "uninstalling " + src);
     worker_ = std::thread([this] {
         ok_ = Paths::removeTree(trash_);
         done_ = true;

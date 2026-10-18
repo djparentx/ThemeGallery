@@ -85,4 +85,17 @@ bool removeTree(const std::string& path) {
     return gRemoveFailures == 0;
 }
 
+std::vector<std::string> scanDirs(const std::string& installDir) {
+    std::vector<std::string> dirs{installDir};
+    const std::string roms = "/roms/themes";
+    if (installDir != roms && isDir(roms)) dirs.push_back(roms);
+    for (const auto& d : dirs) Log::info("paths", "scan " + d);
+    return dirs;
+}
+
+long long mtime(const std::string& path) {
+    struct stat st;
+    return stat(path.c_str(), &st) == 0 ? (long long)st.st_mtime : 0;
+}
+
 }  // namespace Paths

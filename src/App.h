@@ -55,7 +55,8 @@ public:
     bool favoritesOnly() const { return favoritesOnly_; }
     bool setFilter(bool favoritesOnly);  // false = Favorites requested but none exist (ignored)
 
-    bool isInstalled(size_t theme) const { return theme < installed_.size() && installed_[theme]; }
+    bool isInstalled(size_t theme) const { return theme < installedIn_.size() && !installedIn_[theme].empty(); }
+    const std::vector<std::string>& installedIn(size_t theme) const { return installedIn_[theme]; }
     bool isFavorite(size_t theme) const { return state.isFavorite(gallery.themes[theme].folder); }
     void toggleFavorite(size_t theme);
     void refreshInstalled();
@@ -88,7 +89,8 @@ private:
     std::vector<std::unique_ptr<Screen>> overlays_;
     std::vector<std::unique_ptr<Screen>> pendingPush_;
     int pendingPops_ = 0;
-    std::vector<bool> installed_;
+    std::vector<std::vector<std::string>> installedIn_;  // per theme: dirs that hold it, in scan order
+    std::vector<std::string> scanDirs_;
     std::vector<size_t> visible_;
     std::string statePath_;
     ViewMode pendingView_ = ViewMode::Carousel;
