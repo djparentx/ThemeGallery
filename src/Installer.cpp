@@ -19,8 +19,11 @@ extern char** environ;
 
 namespace Installer {
 
-bool extract(const std::string& zip, const std::string& outDir, const std::atomic<bool>& cancel, std::string& error) {
-    // the system unzip must not load our bundled libraries
+namespace {
+// Runs args[0] (PATH lookup unless it contains '/') without our bundled libraries.
+// Returns the exit code, or -1 with error set.
+int runTool(const std::vector<std::string>& args, bool muteStdout, const std::atomic<bool>* cancel, std::string& error) {
+    // system tools must not load our bundled libraries
     std::vector<std::string> envStore;
     for (char** e = environ; *e; e++)
         if (std::strncmp(*e, "LD_LIBRARY_PATH=", 16) != 0) envStore.emplace_back(*e);
@@ -28,20 +31,20 @@ bool extract(const std::string& zip, const std::string& outDir, const std::atomi
     for (auto& s : envStore) envp.push_back(&s[0]);
     envp.push_back(nullptr);
 
-    std::vector<std::string> argStore = {"unzip", "-q", "-o", zip, "-d", outDir};
+    std::vector<std::string> argStore = args;
     std::vector<char*> argv;
     for (auto& s : argStore) argv.push_back(&s[0]);
     argv.push_back(nullptr);
 
     posix_spawn_file_actions_t fa;
     posix_spawn_file_actions_init(&fa);
-    posix_spawn_file_actions_addopen(&fa, STDOUT_FILENO, "/dev/null", O_WRONLY, 0);  // stderr still goes to the log
+    if (muteStdout) posix_spawn_file_actions_addopen(&fa, STDOUT_FILENO, "/dev/null", O_WRONLY, 0);  // stderr still goes to the log
     pid_t pid = 0;
-    const int rc = posix_spawnp(&pid, "unzip", &fa, nullptr, argv.data(), envp.data());
+    const int rc = posix_spawnp(&pid, argv[0], &fa, nullptr, argv.data(), envp.data());
     posix_spawn_file_actions_destroy(&fa);
     if (rc != 0) {
-        error = std::string("cannot run unzip: ") + std::strerror(rc);
-        return false;
+        error = "cannot run " + args[0] + ": " + std::strerror(rc);
+        return -1;
     }
 
     int status = 0;
@@ -50,26 +53,47 @@ bool extract(const std::string& zip, const std::string& outDir, const std::atomi
         if (r == pid) break;
         if (r < 0 && errno != EINTR) {
             error = std::string("waitpid: ") + std::strerror(errno);
-            return false;
+            return -1;
         }
-        if (cancel) {
+        if (cancel && *cancel) {
             kill(pid, SIGTERM);
             waitpid(pid, &status, 0);
             error = "cancelled";
-            return false;
+            return -1;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
     if (!WIFEXITED(status)) {
-        error = "unzip was terminated";
-        return false;
+        error = args[0] + " was terminated";
+        return -1;
     }
-    const int code = WEXITSTATUS(status);
+    return WEXITSTATUS(status);
+}
+}  // namespace
+
+bool extract(const std::string& zip, const std::string& outDir, const std::atomic<bool>& cancel, std::string& error) {
+    const int code = runTool({"unzip", "-q", "-o", zip, "-d", outDir}, true, &cancel, error);
+    if (code < 0) return false;
     if (code == 1) {
         Log::warn("install", "unzip reported warnings");  // 1 = completed with warnings
     } else if (code != 0) {
         error = "unzip failed (exit " + std::to_string(code) + ")";
         return false;
+    }
+    return true;
+}
+
+bool applyPatch(const std::string& root, const std::string& patchFile, std::string& error) {
+    for (const bool dry : {true, false}) {
+        std::vector<std::string> args = {"/usr/bin/patch", "-p1", "--forward", "--batch",
+                                         "--no-backup-if-mismatch", "--reject-file=-", "-d", root, "-i", patchFile};
+        if (dry) args.push_back("--dry-run");
+        const int code = runTool(args, false, nullptr, error);  // patch's own messages go to the log
+        if (code < 0) return false;
+        if (code != 0) {
+            error = std::string(dry ? "does not apply" : "failed") + " (exit " + std::to_string(code) + ")";
+            return false;
+        }
     }
     return true;
 }

@@ -23,14 +23,14 @@ private:
     App& app_;
     const size_t theme_;
     // copied up front so the worker never touches App data
-    const std::string target_, url_, folder_, work_, zip_, extractDir_, dest_;
+    const std::string target_, url_, folder_, work_, zip_, extractDir_, dest_, patch_;
     const uint64_t cfgSize_;
     const bool needCheck_;
 
     std::thread worker_;
     std::atomic<int> phase_;
     std::atomic<bool> cancel_{false}, canCancel_{true}, done_{false};
-    std::atomic<bool> ok_{false}, offline_{false}, cancelled_{false};
+    std::atomic<bool> ok_{false}, offline_{false}, cancelled_{false}, unpatched_{false};
     std::atomic<uint64_t> received_{0}, total_{0};
     std::string error_;  // valid once done_
 

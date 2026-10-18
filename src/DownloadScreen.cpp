@@ -33,6 +33,9 @@ DownloadScreen::DownloadScreen(App& app, size_t theme, const std::string& target
       zip_(work_ + "/" + folder_ + ".zip"),
       extractDir_(work_ + "/x"),
       dest_(targetDir + "/" + folder_),
+      patch_(app.gallery.themes[theme].imagesDir.empty()
+                 ? std::string()
+                 : Paths::appDir() + "patches/" + app.gallery.themes[theme].imagesDir + ".patch"),
       cfgSize_(app.gallery.themes[theme].size),
       needCheck_(needCheck),
       phase_(needCheck ? CHECKING : DOWNLOADING) {}
@@ -109,6 +112,15 @@ void DownloadScreen::run() {
     if (cancel_) return stopCancelled();
     canCancel_ = false;  // from here the swap always completes
 
+    if (!patch_.empty() && stat(patch_.c_str(), &st) == 0 && S_ISREG(st.st_mode)) {
+        if (Installer::applyPatch(root, patch_, err)) {
+            Log::info("install", "patched with " + patch_);
+        } else {
+            Log::warn("install", "patch " + patch_ + " " + err);
+            unpatched_ = true;
+        }
+    }
+
     std::string trash;
     if (!Installer::swapIn(root, dest_, trash, err)) return fail(err);
     Log::info("install", "installed " + dest_);
@@ -132,7 +144,8 @@ void DownloadScreen::finish() {
         a.refreshInstalled();
         a.refreshFreeSpace();
         a.markThemesChanged();
-        a.message("Theme Installed", "\"" + name + "\" was installed to " + target_ + ".");
+        a.message("Theme Installed", "\"" + name + "\" was installed to " + target_ + "." +
+                  (unpatched_ ? " The theme patch could not be applied, so it was installed unpatched." : ""));
     } else {
         a.message("Install Failed", error_);
     }

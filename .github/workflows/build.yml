@@ -42,6 +42,7 @@ jobs:
           cp assets/fonts/Exo2-Regular.ttf assets/fonts/Exo2-SemiBold.ttf assets/fonts/OFL.txt "$APP/fonts/"
           cp dist/gallery.ini "$APP/"
           if [ -d assets/Images ]; then cp -r assets/Images/. "$APP/Images/"; fi
+          if [ -d patches ]; then mkdir -p "$APP/patches" && cp -r patches/. "$APP/patches/"; fi
 
           # Libraries the device provides: never bundled, never descended into
           EXCLUDE='^(linux-vdso|ld-linux|libc\.so|libm\.so|libdl\.so|librt\.so|libpthread\.so|libresolv\.so|libstdc\+\+\.so|libgcc_s\.so|libSDL2-2\.0\.so|libEGL|libGLES|libGL\.so|libmali|libdrm|libgbm|libasound|libudev)'
