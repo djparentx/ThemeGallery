@@ -1,14 +1,17 @@
 #include "App.h"
 #include <SDL_image.h>
 #include <curl/curl.h>
+#include <dirent.h>
 #include <algorithm>
 #include <cstdint>
 #include "CarouselScreen.h"
 #include "DialogScreen.h"
+#include "DownloadScreen.h"
 #include "Gfx.h"
 #include "ListScreen.h"
 #include "Log.h"
 #include "MenuScreen.h"
+#include "Net.h"
 #include "Paths.h"
 #include "RemovingScreen.h"
 #include "Style.h"
@@ -47,6 +50,15 @@ int App::run() {
                 break;
             }
         }
+
+        // launch connection check: report once if offline
+        if (!netReported_ && netState_ != NET_CHECKING) {
+            netReported_ = true;
+            if (netState_ == NET_OFFLINE) {
+                message("Offline", "Internet Required to Download - Browsing Only");
+                applyPending();
+            }
+        }
         images->pump();
 
         const Uint32 now = SDL_GetTicks();
@@ -59,7 +71,7 @@ int App::run() {
             o->render(now);
         }
         SDL_RenderPresent(ren);
-        applyPending();  // overlays may finish during render (e.g. removal done)
+        applyPending();  // overlays may finish during render
         text->prune(now);
     }
     shutdown();
@@ -165,20 +177,29 @@ bool App::init() {
     state.load(statePath_);
     refreshInstalled();
     rebuildVisible();
+    cleanupLeftovers();
 
     images = std::make_unique<ImageCache>(ren, gallery, lay.preview.h, lay.thumbH);
     applyView(state.view);
+
+    netThread_ = std::thread([this] {
+        const int result = Net::checkInternet() ? NET_ONLINE : NET_OFFLINE;
+        int expected = NET_CHECKING;
+        netState_.compare_exchange_strong(expected, result);  // a user-started check may have answered first
+    });
     return true;
 }
 
 void App::shutdown() {
-    overlays_.clear();  // a running removal joins its worker here
+    overlays_.clear();  // running removals/installs cancel and join here
     pendingPush_.clear();
     screen_.reset();
     images.reset();  // joins the decode worker and frees textures before the renderer goes
     icons.reset();
     text.reset();
     input_.close();
+    if (netThread_.joinable()) netThread_.join();
+    if (cleanupThread_.joinable()) cleanupThread_.join();
     for (TTF_Font* f : {fonts.header, fonts.title, fonts.body, fonts.bodyBold, fonts.small, fonts.smallBold, fonts.tiny})
         if (f) TTF_CloseFont(f);
     fonts = Fonts{};
@@ -192,6 +213,27 @@ void App::shutdown() {
     SDL_Quit();
 }
 
+void App::cleanupLeftovers() {
+    // snapshot now, so a work folder created later is never touched
+    std::vector<std::string> stale;
+    for (const auto& d : scanDirs_) {
+        DIR* dir = opendir(d.c_str());
+        if (!dir) continue;
+        while (dirent* e = readdir(dir)) {
+            const std::string n = e->d_name;
+            if (n.rfind(".tg_tmp_", 0) == 0 || n.rfind(".tg_old_", 0) == 0) stale.push_back(d + "/" + n);
+        }
+        closedir(dir);
+    }
+    if (stale.empty()) return;
+    cleanupThread_ = std::thread([stale] {
+        for (const auto& p : stale) {
+            Log::info("cleanup", "removing " + p);
+            Paths::removeTree(p);
+        }
+    });
+}
+
 void App::refreshInstalled() {
     installedIn_.assign(gallery.themes.size(), {});
     for (size_t i = 0; i < gallery.themes.size(); i++)
@@ -202,6 +244,22 @@ void App::refreshInstalled() {
 void App::refreshFreeSpace() {
     freeSpace = Paths::freeBytes(themesDir);
     Log::info("paths", "free " + Util::formatBytes(freeSpace));
+}
+
+std::string App::installTarget(size_t theme) const {
+    const std::vector<std::string>& dirs = installedIn_[theme];
+    if (dirs.empty()) return themesDir;
+    const std::string& folder = gallery.themes[theme].folder;
+    std::string best = dirs.front();
+    long long newest = Paths::mtime(best + "/" + folder);
+    for (size_t i = 1; i < dirs.size(); i++) {
+        const long long m = Paths::mtime(dirs[i] + "/" + folder);
+        if (m > newest) {
+            newest = m;
+            best = dirs[i];
+        }
+    }
+    return best;
 }
 
 size_t App::visiblePos() const {
@@ -311,7 +369,7 @@ void App::confirmUninstall(size_t theme) {
     }
     DialogSpec spec;
     spec.title = "Uninstall Theme";
-    spec.message = "Uninstall \"" + t.name + "\"? It will be deleted from " + themesDir + ".";
+    spec.message = "Uninstall \"" + t.name + "\"? It will be deleted from " + installTarget(theme) + ".";
     spec.buttons = {{"Uninstall", [this, theme] { pushOverlay(std::make_unique<RemovingScreen>(*this, theme)); }},
                     {"Cancel", nullptr}};
     spec.defaultButton = 1;  // destructive: Cancel is preselected
@@ -319,8 +377,9 @@ void App::confirmUninstall(size_t theme) {
     pushOverlay(std::make_unique<DialogScreen>(*this, std::move(spec)));
 }
 
-void App::startInstall(size_t) {
-    message("Coming Soon", "Downloads arrive in the next build.");  // TEMP until the download stage
+void App::startInstall(size_t theme) {
+    // offline or launch check still running: the download screen checks first
+    pushOverlay(std::make_unique<DownloadScreen>(*this, theme, installTarget(theme), !online()));
 }
 
 void App::drawHeader(const std::string& counter) {
@@ -372,7 +431,8 @@ int App::glyph(Glyph g, int x, int cy, bool draw) {
         if (draw) {
             SDL_RenderCopy(ren, icons->button(g), nullptr, &box);
             const char* letter = g == Glyph::A ? "A" : g == Glyph::B ? "B" : g == Glyph::X ? "X" : "Y";
-            text->drawIn(fonts.smallBold, letter, box, g == Glyph::Y ? Style::BG : Style::TEXT, Align::Center);
+            // dark letter on the yellow button, white on the rest
+            text->drawIn(fonts.smallBold, letter, box, g == Glyph::B ? Style::BG : Style::TEXT, Align::Center);
         }
         return gs;
     case Glyph::Start:

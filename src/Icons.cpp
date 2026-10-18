@@ -59,6 +59,6 @@ void Icons::load(int badge, int smallBadge, int glyph, int arrow) {
     const char* paths[4] = {"M6 15 L12 9 L18 15", "M6 9 L12 15 L18 9", "M15 6 L9 12 L15 18", "M9 6 L15 12 L9 18"};
     for (int i = 0; i < 4; i++) arrows_[i] = svg(arrowSvg(paths[i]), arrow, arrow);
 
-    const char* colors[4] = {"#2ecc71", "#e74c3c", "#3498db", "#f1c40f"};  // A B X Y
+    const char* colors[4] = {"#e74c3c", "#f1c40f", "#3498db", "#2ecc71"};  // A red, B yellow, X blue, Y green
     for (int i = 0; i < 4; i++) buttons_[i] = svg(circleSvg(colors[i]), glyph, glyph);
 }

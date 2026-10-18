@@ -1,8 +1,10 @@
 #pragma once
 #include <SDL.h>
 #include <SDL_ttf.h>
+#include <atomic>
 #include <memory>
 #include <string>
+#include <thread>
 #include <vector>
 #include "Config.h"
 #include "EsSettings.h"
@@ -42,7 +44,7 @@ public:
     Gallery gallery;
     UserState state;
     EsSettings es;
-    std::string themesDir;
+    std::string themesDir;  // install target
     uint64_t freeSpace = 0;
     size_t current = 0;  // selected theme, index into gallery.themes
 
@@ -62,6 +64,13 @@ public:
     void refreshInstalled();
     void refreshFreeSpace();
     void markThemesChanged() { themesChanged_ = true; }
+
+    // network state; safe from any thread
+    bool online() const { return netState_ == NET_ONLINE; }
+    void setOnline(bool on) {
+        netState_ = on ? NET_ONLINE : NET_OFFLINE;
+        netReported_ = true;  // a check the user started reports its own result
+    }
 
     // navigation; all changes are applied after the current action finishes
     void requestView(ViewMode v) {
@@ -83,6 +92,8 @@ public:
     SDL_Rect panelRect(int w, int h) const { return {(lay.w - w) / 2, (lay.h - h) / 2, w, h}; }
 
 private:
+    enum { NET_CHECKING, NET_ONLINE, NET_OFFLINE };
+
     SDL_Window* win_ = nullptr;
     Input input_;
     std::unique_ptr<Screen> screen_;
@@ -99,6 +110,11 @@ private:
     bool themesChanged_ = false;
     bool exitRequested_ = false;
 
+    std::atomic<int> netState_{NET_CHECKING};
+    std::atomic<bool> netReported_{false};
+    std::thread netThread_;
+    std::thread cleanupThread_;
+
     bool init();
     void shutdown();
     void applyPending();
@@ -107,5 +123,7 @@ private:
     size_t nextFavorite(size_t from) const;  // SIZE_MAX if none
     void confirmUninstall(size_t theme);
     void startInstall(size_t theme);
+    std::string installTarget(size_t theme) const;  // existing (newest) copy's dir, else themesDir
+    void cleanupLeftovers();
     int glyph(Glyph g, int x, int cy, bool draw);  // returns width
 };

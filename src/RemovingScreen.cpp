@@ -78,18 +78,7 @@ void RemovingScreen::render(Uint32 now) {
     Gfx::fillRoundRect(a.ren, panel, pr, Style::PANEL);
     Gfx::strokeRoundRect(a.ren, panel, pr, 1, Style::PANEL_BORDER);
 
-    // 8-dot spinner, brightest dot rotates
-    const int cx = panel.x + pw / 2, cy = panel.y + pad + spin / 2;
-    const int R = L.px(14), dot = std::max(3, L.px(5));
-    const int head = (int)((now / 90) % 8);
-    for (int i = 0; i < 8; i++) {
-        const float ang = i * 3.14159265f / 4.0f;
-        const int age = (head - i + 8) % 8;
-        const Uint8 alpha = (Uint8)(255 - age * 28);
-        const SDL_Rect d{cx + (int)std::lround(R * std::cos(ang)) - dot / 2,
-                         cy + (int)std::lround(R * std::sin(ang)) - dot / 2, dot, dot};
-        Gfx::fillRoundRect(a.ren, d, dot / 2, SDL_Color{Style::ACCENT.r, Style::ACCENT.g, Style::ACCENT.b, alpha});
-    }
+    Gfx::spinner(a.ren, panel.x + pw / 2, panel.y + pad + spin / 2, L.px(14), std::max(3, L.px(5)), now, Style::ACCENT);
 
     const std::string msg = "Removing \"" + a.gallery.themes[theme_].name + "\"...";
     a.text->drawIn(a.fonts.body, a.text->fit(a.fonts.body, msg, pw - 2 * pad),

@@ -77,4 +77,16 @@ void strokeRoundRect(SDL_Renderer* r, const SDL_Rect& rc, int radius, int t, SDL
     SDL_RenderGeometry(r, nullptr, v.data(), (int)v.size(), idx.data(), (int)idx.size());
 }
 
+void spinner(SDL_Renderer* r, int cx, int cy, int radius, int dot, Uint32 now, SDL_Color c) {
+    const int head = (int)((now / 90) % 8);
+    for (int i = 0; i < 8; i++) {
+        const float ang = i * PI / 4.0f;
+        const int age = (head - i + 8) % 8;
+        const SDL_Color dc{c.r, c.g, c.b, (Uint8)(c.a * (255 - age * 28) / 255)};
+        const SDL_Rect d{cx + (int)std::lround(radius * std::cos(ang)) - dot / 2,
+                         cy + (int)std::lround(radius * std::sin(ang)) - dot / 2, dot, dot};
+        fillRoundRect(r, d, dot / 2, dc);
+    }
+}
+
 }  // namespace Gfx

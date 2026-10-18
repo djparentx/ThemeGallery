@@ -60,12 +60,15 @@ add_executable(ThemeGallery
   src/TextCache.cpp
   src/Icons.cpp
   src/ImageCache.cpp
+  src/Net.cpp
+  src/Installer.cpp
   src/App.cpp
   src/CarouselScreen.cpp
   src/ListScreen.cpp
   src/DialogScreen.cpp
   src/MenuScreen.cpp
-  src/RemovingScreen.cpp)
+  src/RemovingScreen.cpp
+  src/DownloadScreen.cpp)
 
 target_compile_options(ThemeGallery PRIVATE -Wall -Wextra)
 target_link_libraries(ThemeGallery PRIVATE
