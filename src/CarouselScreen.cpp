@@ -195,7 +195,7 @@ void CarouselScreen::drawTheme(size_t theme, int focus, float hOff, int dy) {
     const std::string size = t.size ? Util::formatBytes(t.size) : "unknown";
     std::string location;
     if (a.isInstalled(theme)) {
-        for (const auto& d : a.installedIn(theme)) location += (location.empty() ? "" : ", ") + d;
+        for (const auto& d : a.installedIn(theme)) location += (location.empty() ? "" : ", ") + d.dir;
     } else {
         location = a.themesDir + " (" + Util::formatBytes(a.freeSpace) + " free)";
     }

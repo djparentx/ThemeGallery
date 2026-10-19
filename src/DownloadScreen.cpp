@@ -23,16 +23,16 @@ std::string hms(double secs) {
 }
 }
 
-DownloadScreen::DownloadScreen(App& app, size_t theme, const std::string& targetDir, bool needCheck)
+DownloadScreen::DownloadScreen(App& app, size_t theme, const InstallLoc& target, bool needCheck)
     : app_(app),
       theme_(theme),
-      target_(targetDir),
+      target_(target.dir),
       url_(app.gallery.themes[theme].download),
       folder_(app.gallery.themes[theme].folder),
-      work_(targetDir + "/.tg_tmp_" + std::to_string((long long)std::time(nullptr))),
+      work_(target.dir + "/.tg_tmp_" + std::to_string((long long)std::time(nullptr))),
       zip_(work_ + "/" + folder_ + ".zip"),
       extractDir_(work_ + "/x"),
-      dest_(targetDir + "/" + folder_),
+      dest_(target.path()),  // reinstall keeps the existing folder name
       patch_(app.gallery.themes[theme].imagesDir.empty()
                  ? std::string()
                  : Paths::appDir() + "patches/" + app.gallery.themes[theme].imagesDir + ".patch"),

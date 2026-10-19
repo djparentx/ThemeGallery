@@ -7,11 +7,12 @@
 #include "Screen.h"
 
 class App;
+struct InstallLoc;
 
 // Install / reinstall: optional connection check, download, extract, swap into place
 class DownloadScreen : public Screen {
 public:
-    DownloadScreen(App& app, size_t theme, const std::string& targetDir, bool needCheck);
+    DownloadScreen(App& app, size_t theme, const InstallLoc& target, bool needCheck);
     ~DownloadScreen() override;
     void enter() override;
     void handle(Action a) override;

@@ -2,6 +2,7 @@
 #include <SDL_image.h>
 #include <curl/curl.h>
 #include <dirent.h>
+#include <strings.h>
 #include <algorithm>
 #include <cstdint>
 #include "CarouselScreen.h"
@@ -236,9 +237,32 @@ void App::cleanupLeftovers() {
 
 void App::refreshInstalled() {
     installedIn_.assign(gallery.themes.size(), {});
-    for (size_t i = 0; i < gallery.themes.size(); i++)
-        for (const auto& d : scanDirs_)
-            if (Paths::isDir(d + "/" + gallery.themes[i].folder)) installedIn_[i].push_back(d);
+    for (const auto& d : scanDirs_) {
+        // actual folder names on disk, matched case-insensitively (/roms may be FAT/exFAT)
+        std::vector<std::string> names;
+        if (DIR* dir = opendir(d.c_str())) {
+            while (dirent* e = readdir(dir)) {
+                const std::string n = e->d_name;
+                if (n.empty() || n[0] == '.') continue;
+                if (Paths::isDir(d + "/" + n)) names.push_back(n);
+            }
+            closedir(dir);
+        }
+        for (size_t i = 0; i < gallery.themes.size(); i++) {
+            const std::string& folder = gallery.themes[i].folder;
+            std::string match;
+            for (const auto& n : names) {
+                if (n == folder) {  // exact match wins
+                    match = n;
+                    break;
+                }
+                if (match.empty() && strcasecmp(n.c_str(), folder.c_str()) == 0) match = n;
+            }
+            if (match.empty()) continue;
+            installedIn_[i].push_back({d, match});
+            if (match != folder) Log::info("paths", "found " + d + "/" + match + " for " + folder);
+        }
+    }
 }
 
 void App::refreshFreeSpace() {
@@ -246,17 +270,16 @@ void App::refreshFreeSpace() {
     Log::info("paths", "free " + Util::formatBytes(freeSpace));
 }
 
-std::string App::installTarget(size_t theme) const {
-    const std::vector<std::string>& dirs = installedIn_[theme];
-    if (dirs.empty()) return themesDir;
-    const std::string& folder = gallery.themes[theme].folder;
-    std::string best = dirs.front();
-    long long newest = Paths::mtime(best + "/" + folder);
-    for (size_t i = 1; i < dirs.size(); i++) {
-        const long long m = Paths::mtime(dirs[i] + "/" + folder);
-        if (m > newest) {
-            newest = m;
-            best = dirs[i];
+InstallLoc App::copyByAge(size_t theme, bool newest) const {
+    const std::vector<InstallLoc>& locs = installedIn_[theme];
+    if (locs.empty()) return {themesDir, gallery.themes[theme].folder};  // new install
+    InstallLoc best = locs.front();
+    long long bestTime = Paths::mtime(best.path());
+    for (size_t i = 1; i < locs.size(); i++) {
+        const long long m = Paths::mtime(locs[i].path());
+        if (newest ? m > bestTime : m < bestTime) {
+            bestTime = m;
+            best = locs[i];
         }
     }
     return best;
@@ -396,7 +419,7 @@ void App::openThemeActions() {
 
 void App::setTheme(size_t theme) {
     const Theme& t = gallery.themes[theme];
-    if (!es.saveThemeSet(t.folder)) {
+    if (!es.saveThemeSet(installTarget(theme).name)) {
         message("Set Theme Failed", "Could not update " + es.path + ". See ThemeGallery.log.");
         return;
     }
@@ -406,14 +429,14 @@ void App::setTheme(size_t theme) {
 
 void App::confirmUninstall(size_t theme) {
     const Theme& t = gallery.themes[theme];
-    if (t.folder == es.themeSet) {
+    if (isCurrentTheme(theme)) {
         message("Theme In Use",
                 "This theme is in use by EmulationStation. Select a different theme in ES before uninstalling.");
         return;
     }
     DialogSpec spec;
     spec.title = "Uninstall Theme";
-    spec.message = "Uninstall \"" + t.name + "\"? It will be deleted from " + installTarget(theme) + ".";
+    spec.message = "Uninstall \"" + t.name + "\"? It will be deleted from " + removalTarget(theme).dir + ".";
     spec.buttons = {{"Uninstall", [this, theme] { pushOverlay(std::make_unique<RemovingScreen>(*this, theme)); }},
                     {"Cancel", nullptr}};
     spec.defaultButton = 1;  // destructive: Cancel is preselected

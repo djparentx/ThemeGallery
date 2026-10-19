@@ -32,6 +32,12 @@ struct Hint {
 
 enum class Filter { All, Favorites, Batocera, Fcamod };  // Start menu order
 
+struct InstallLoc {
+    std::string dir;   // scanned themes dir
+    std::string name;  // folder name as it exists on disk (case may differ from gallery.ini)
+    std::string path() const { return dir + "/" + name; }
+};
+
 class App {
 public:
     int run();  // 0 = normal exit, 3 = themes changed (launcher restarts ES), 1 = init failure
@@ -61,8 +67,14 @@ public:
     static const char* filterName(Filter f);
 
     bool isInstalled(size_t theme) const { return theme < installedIn_.size() && !installedIn_[theme].empty(); }
-    const std::vector<std::string>& installedIn(size_t theme) const { return installedIn_[theme]; }
-    bool isCurrentTheme(size_t theme) const { return gallery.themes[theme].folder == es.themeSet; }
+    const std::vector<InstallLoc>& installedIn(size_t theme) const { return installedIn_[theme]; }
+    bool isCurrentTheme(size_t theme) const {  // ES matches ThemeSet against the folder name exactly
+        for (const auto& l : installedIn_[theme])
+            if (l.name == es.themeSet) return true;
+        return false;
+    }
+    InstallLoc installTarget(size_t theme) const { return copyByAge(theme, true); }   // reinstall, Set Theme
+    InstallLoc removalTarget(size_t theme) const { return copyByAge(theme, false); }  // uninstall
     bool isFavorite(size_t theme) const { return state.isFavorite(gallery.themes[theme].folder); }
     void toggleFavorite(size_t theme);
     void refreshInstalled();
@@ -106,7 +118,7 @@ private:
     std::vector<std::unique_ptr<Screen>> overlays_;
     std::vector<std::unique_ptr<Screen>> pendingPush_;
     int pendingPops_ = 0;
-    std::vector<std::vector<std::string>> installedIn_;  // per theme: dirs that hold it, in scan order
+    std::vector<std::vector<InstallLoc>> installedIn_;  // per theme: copies on disk, in scan order
     std::vector<std::string> scanDirs_;
     std::vector<size_t> visible_;
     std::string statePath_;
@@ -131,7 +143,7 @@ private:
     void confirmUninstall(size_t theme);
     void setTheme(size_t theme);
     void startInstall(size_t theme);
-    std::string installTarget(size_t theme) const;  // existing (newest) copy's dir, else themesDir
+    InstallLoc copyByAge(size_t theme, bool newest) const;  // newest or oldest copy; new-install target if none
     void cleanupLeftovers();
     int glyph(Glyph g, int x, int cy, bool draw);  // returns width
 };
