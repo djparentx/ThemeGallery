@@ -486,8 +486,10 @@ int App::glyph(Glyph g, int x, int cy, bool draw) {
         }
         return gs;
     case Glyph::Start:
-    case Glyph::Select: {
-        const char* label = g == Glyph::Start ? "START" : "SELECT";
+    case Glyph::Select:
+    case Glyph::L1:
+    case Glyph::R1: {
+        const char* label = g == Glyph::Start ? "START" : g == Glyph::Select ? "SELECT" : g == Glyph::L1 ? "L1" : "R1";
         const int w = text->width(fonts.tiny, label) + lay.px(10);
         if (draw) {
             const SDL_Rect pill{x, box.y, w, gs};

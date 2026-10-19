@@ -3,7 +3,7 @@
 #include <string>
 
 // Order matters: arrows first, then face buttons (used as array indices)
-enum class Glyph { Up, Down, Left, Right, A, B, X, Y, Start, Select };
+enum class Glyph { Up, Down, Left, Right, A, B, X, Y, Start, Select, L1, R1 };
 
 // SVG icons rasterized once at the exact pixel size they are drawn at
 class Icons {

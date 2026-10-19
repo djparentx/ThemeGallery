@@ -26,6 +26,8 @@ const char* actionName(Action a) {
     case Action::Select: return "Select";
     case Action::Exit:   return "Exit";
     case Action::Cancel: return "Cancel";
+    case Action::PageUp:   return "PageUp";
+    case Action::PageDown: return "PageDown";
     }
     return "?";
 }
@@ -92,9 +94,11 @@ bool Input::open(const EsInputFile& esInput, bool invertButtons) {
         else if (n == "y")      binds_[B_Y].push_back(bnd);
         else if (n == "start")  binds_[B_START].push_back(bnd);
         else if (n == "select") binds_[B_SELECT].push_back(bnd);
+        else if (n == "leftshoulder")  binds_[B_L1].push_back(bnd);
+        else if (n == "rightshoulder") binds_[B_R1].push_back(bnd);
     }
 
-    static const char* btnNames[B_COUNT] = {"up", "down", "left", "right", "ok", "back", "x", "y", "start", "select"};
+    static const char* btnNames[B_COUNT] = {"up", "down", "left", "right", "ok", "back", "x", "y", "start", "select", "l1", "r1"};
     mapped_ = true;
     for (int b = 0; b < B_COUNT; b++) {
         if (binds_[b].empty()) {
@@ -173,12 +177,14 @@ void Input::press(int b, std::vector<Action>& out) {
     case B_SELECT: out.push_back(Action::Select); break;
     case B_START:  out.push_back(held_[B_SELECT] ? Action::Exit : Action::Start); break;
     case B_X:      out.push_back(held_[B_SELECT] ? Action::Cancel : Action::X); break;
+    case B_L1:     out.push_back(Action::PageUp); break;
+    case B_R1:     out.push_back(Action::PageDown); break;
     }
 }
 
 void Input::update(std::vector<Action>& out) {
     Uint32 now = SDL_GetTicks();
-    for (int b : {B_UP, B_DOWN, B_LEFT, B_RIGHT}) {
+    for (int b : {B_UP, B_DOWN, B_LEFT, B_RIGHT, B_L1, B_R1}) {
         if (held_[b] && (Sint32)(now - repeatAt_[b]) >= 0) {
             repeatAt_[b] = now + REPEAT_RATE;
             press(b, out);

@@ -63,6 +63,12 @@ void ListScreen::handle(Action a) {
     case Action::Up:
         app_.step(-1);
         break;
+    case Action::PageDown:
+        app_.step(10);
+        break;
+    case Action::PageUp:
+        app_.step(-10);
+        break;
     case Action::Ok:
         app_.openThemeActions();
         return;
@@ -83,6 +89,7 @@ void ListScreen::render(Uint32) {
     a.drawHeader(n ? std::to_string(a.visiblePos() + 1) + "/" + std::to_string(n) : "");
 
     const std::vector<Hint> hints = {{{Glyph::Up, Glyph::Down}, "Browse"},
+                                     {{Glyph::L1, Glyph::R1}, "Page"},
                                      {{a.okGlyph()}, "Select"},
                                      {{a.backGlyph()}, "Exit"},
                                      {{Glyph::Y}, "Fav"},

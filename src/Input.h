@@ -5,7 +5,7 @@
 #include <vector>
 #include "EsSettings.h"
 
-enum class Action { Up, Down, Left, Right, Ok, Back, X, Y, Start, Select, Exit, Cancel };
+enum class Action { Up, Down, Left, Right, Ok, Back, X, Y, Start, Select, Exit, Cancel, PageUp, PageDown };
 
 const char* actionName(Action a);
 
@@ -19,7 +19,7 @@ public:
     bool mapped() const { return mapped_; }
 
 private:
-    enum Btn { B_UP, B_DOWN, B_LEFT, B_RIGHT, B_OK, B_BACK, B_X, B_Y, B_START, B_SELECT, B_COUNT };
+    enum Btn { B_UP, B_DOWN, B_LEFT, B_RIGHT, B_OK, B_BACK, B_X, B_Y, B_START, B_SELECT, B_L1, B_R1, B_COUNT };
     struct Binding { EsInputType type; int id; int value; };
 
     std::vector<Binding> binds_[B_COUNT];

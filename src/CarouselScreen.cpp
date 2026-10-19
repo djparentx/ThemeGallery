@@ -48,16 +48,21 @@ void CarouselScreen::handle(Action a) {
     switch (a) {
     case Action::Up:
     case Action::Down:
+    case Action::PageUp:
+    case Action::PageDown: {
         if (n < 2) break;
+        const bool down = a == Action::Down || a == Action::PageDown;
+        const int dist = (a == Action::PageUp || a == Action::PageDown) ? 10 : 1;
         prevTheme_ = app_.current;
         prevFocus_ = focus_;
-        app_.step(a == Action::Down ? 1 : -1);
-        vDir_ = (a == Action::Down) ? 1.0f : -1.0f;
+        app_.step(down ? dist : -dist);
+        vDir_ = down ? 1.0f : -1.0f;
         vStart_ = now;
         focus_ = 0;
         hFrom_ = 0.0f;
         requestImages();
         break;
+    }
     case Action::Left:
     case Action::Right: {
         const auto* imgs = app_.images->images(app_.current);
@@ -110,6 +115,7 @@ void CarouselScreen::render(Uint32 now) {
     }
 
     a.drawFooter({{{Glyph::Up, Glyph::Down}, "Browse"},
+                  {{Glyph::L1, Glyph::R1}, "Page"},
                   {{Glyph::Left, Glyph::Right}, "Images"},
                   {{a.okGlyph()}, "Select"},
                   {{a.backGlyph()}, "Exit"},

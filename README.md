@@ -22,6 +22,7 @@ A and B follow the EmulationStation **Switch A/B buttons** setting (`InvertButto
 
 | Button        | Action                                         |
 |---------------|------------------------------------------------|
+| L1 / R1       | Jump 10 themes up / down (wraps around, hold to repeat) |
 | Up / Down     | Previous / next theme (wraps around)           |
 | Left / Right  | Previous / next screenshot (carousel view)     |
 | OK            | Install, or Set Theme / Reinstall / Uninstall if installed |
