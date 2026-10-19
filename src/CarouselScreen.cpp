@@ -38,6 +38,10 @@ void CarouselScreen::handle(Action a) {
         app_.openMenu();
         return;
     }
+    if (a == Action::Back) {
+        app_.confirmExit();
+        return;
+    }
     const size_t n = app_.visibleCount();
     if (n == 0) return;
     const Uint32 now = SDL_GetTicks();
@@ -108,7 +112,7 @@ void CarouselScreen::render(Uint32 now) {
     a.drawFooter({{{Glyph::Up, Glyph::Down}, "Browse"},
                   {{Glyph::Left, Glyph::Right}, "Images"},
                   {{a.okGlyph()}, "Select"},
-                  {{a.backGlyph()}, "Back"},
+                  {{a.backGlyph()}, "Exit"},
                   {{Glyph::Y}, "Fav"},
                   {{Glyph::Start}, "Menu"}});
 }

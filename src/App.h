@@ -85,6 +85,7 @@ public:
     void popOverlay() { pendingPops_++; }
     void requestExit() { exitRequested_ = true; }
     void openMenu();
+    void confirmExit();  // Back on a main view
     void openThemeActions();  // OK on the selected theme
     void message(const std::string& title, const std::string& text);
 

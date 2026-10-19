@@ -354,6 +354,14 @@ void App::openMenu() {
     pushOverlay(std::make_unique<MenuScreen>(*this));
 }
 
+void App::confirmExit() {
+    DialogSpec spec;
+    spec.title = "Exit?";
+    spec.buttons = {{"Yes", [this] { requestExit(); }}, {"No", nullptr}};
+    spec.defaultButton = 1;  // No
+    pushOverlay(std::make_unique<DialogScreen>(*this, std::move(spec)));
+}
+
 void App::message(const std::string& title, const std::string& msg) {
     DialogSpec spec;
     spec.title = title;

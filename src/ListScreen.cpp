@@ -51,6 +51,10 @@ void ListScreen::handle(Action a) {
         app_.openMenu();
         return;
     }
+    if (a == Action::Back) {
+        app_.confirmExit();
+        return;
+    }
     if (app_.visibleCount() == 0) return;
     switch (a) {
     case Action::Down:
@@ -80,7 +84,7 @@ void ListScreen::render(Uint32) {
 
     const std::vector<Hint> hints = {{{Glyph::Up, Glyph::Down}, "Browse"},
                                      {{a.okGlyph()}, "Select"},
-                                     {{a.backGlyph()}, "Back"},
+                                     {{a.backGlyph()}, "Exit"},
                                      {{Glyph::Y}, "Fav"},
                                      {{Glyph::Start}, "Menu"}};
     if (n == 0) {
