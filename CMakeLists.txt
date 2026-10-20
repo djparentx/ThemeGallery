@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 project(ThemeGallery LANGUAGES C CXX)
+set(TG_VERSION "v0.0.0" CACHE STRING "Shown in the menu, compared against the latest GitHub release")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -71,6 +72,7 @@ add_executable(ThemeGallery
   src/DownloadScreen.cpp)
 
 target_compile_options(ThemeGallery PRIVATE -Wall -Wextra)
+target_compile_definitions(ThemeGallery PRIVATE TG_VERSION="${TG_VERSION}")
 target_link_libraries(ThemeGallery PRIVATE
   SDL2::SDL2
   SDL2_image::SDL2_image

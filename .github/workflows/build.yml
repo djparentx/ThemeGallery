@@ -6,6 +6,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+env:
+  TG_VERSION: v1.0.0  # bump per release; the Release tag must match
+
 jobs:
   build:
     runs-on: ubuntu-24.04-arm
@@ -17,12 +20,12 @@ jobs:
           apt-get update
           apt-get install -y --no-install-recommends \
             build-essential cmake git ca-certificates \
-            libsdl2-dev libfreetype-dev libcurl4-openssl-dev
+            libsdl2-dev libfreetype-dev libcurl4-openssl-dev zip
 
       - uses: actions/checkout@v4
 
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DTG_VERSION="$TG_VERSION"
 
       - name: Build
         run: cmake --build build -j"$(nproc)"
@@ -75,10 +78,10 @@ jobs:
           done
           ls -l "$APP/lib"
 
-          # tar keeps exec bits; upload-artifact's zip does not
-          tar -C out -czf ThemeGallery-aarch64.tar.gz Tools
+          # zip keeps exec bits; root holds ThemeGallery.sh + ThemeGallery/
+          (cd "$OUT" && zip -qr ../../ThemeGallery.zip ThemeGallery.sh ThemeGallery)
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
-          name: ThemeGallery-aarch64
-          path: ThemeGallery-aarch64.tar.gz
+          path: ThemeGallery.zip
+          archive: false

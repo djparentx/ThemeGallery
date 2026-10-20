@@ -55,7 +55,8 @@ void MenuScreen::render(Uint32) {
     const int pad = L.px(14), rowH = L.px(38), gap = L.px(6);
     const int pw = std::min(L.w - 2 * L.margin, L.px(360));
     const int titleH = TTF_FontLineSkip(a.fonts.title);
-    const int ph = pad + titleH + L.px(8) + ROWS * rowH + (ROWS - 1) * gap + pad;
+    const int verH = TTF_FontLineSkip(a.fonts.small);
+    const int ph = pad + titleH + L.px(8) + ROWS * rowH + (ROWS - 1) * gap + L.px(8) + verH + pad;
     const SDL_Rect panel = a.panelRect(pw, ph);
     const int pr = L.px(12), br = L.px(8);
 
@@ -94,6 +95,10 @@ void MenuScreen::render(Uint32) {
         a.text->drawIn(a.fonts.body, values[i], SDL_Rect{colX, r.y, colW, r.h}, i == sel_ ? Style::ACCENT : Style::DIM,
                        Align::Center);
     }
+
+    const int vy = y + ROWS * rowH + (ROWS - 1) * gap + L.px(8);
+    a.text->drawIn(a.fonts.small, std::string("ThemeGallery ") + App::version(), SDL_Rect{panel.x, vy, pw, verH},
+                   Style::DIM, Align::Center);
 
     a.drawFooter({{{Glyph::Up, Glyph::Down}, "Move"},
                   {{Glyph::Left, Glyph::Right}, "Change"},

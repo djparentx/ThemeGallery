@@ -96,6 +96,7 @@ public:
     void pushOverlay(std::unique_ptr<Screen> s) { pendingPush_.push_back(std::move(s)); }
     void popOverlay() { pendingPops_++; }
     void requestExit() { exitRequested_ = true; }
+    static const char* version() { return TG_VERSION; }
     void openMenu();
     void confirmExit();  // Back on a main view
     void openThemeActions();  // OK on the selected theme
@@ -133,6 +134,12 @@ private:
     std::thread netThread_;
     std::thread cleanupThread_;
 
+    // background self-update
+    std::atomic<bool> updateReady_{false};  // update.zip complete; latestTag_ is set
+    std::atomic<bool> updateCancel_{false};
+    bool updatePrompted_ = false;
+    std::string latestTag_;
+
     bool init();
     void shutdown();
     void applyPending();
@@ -145,5 +152,7 @@ private:
     void startInstall(size_t theme);
     InstallLoc copyByAge(size_t theme, bool newest) const;  // newest or oldest copy; new-install target if none
     void cleanupLeftovers();
+    void checkForUpdate(const std::string& appDir);  // net thread: newer release -> update.zip
+    void promptUpdate();
     int glyph(Glyph g, int x, int cy, bool draw);  // returns width
 };

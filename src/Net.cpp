@@ -104,4 +104,35 @@ bool download(const std::string& url, const std::string& path, const std::atomic
     return true;
 }
 
+std::string latestTag(const std::string& repo) {
+    CURL* c = curl_easy_init();
+    if (!c) return "";
+    const std::string url = "https://github.com/" + repo + "/releases/latest";
+    curl_easy_setopt(c, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(c, CURLOPT_NOBODY, 1L);
+    curl_easy_setopt(c, CURLOPT_FOLLOWLOCATION, 0L);  // the redirect target holds the tag
+    curl_easy_setopt(c, CURLOPT_CONNECTTIMEOUT, 5L);
+    curl_easy_setopt(c, CURLOPT_TIMEOUT, 8L);
+    curl_easy_setopt(c, CURLOPT_NOSIGNAL, 1L);
+    curl_easy_setopt(c, CURLOPT_USERAGENT, "ThemeGallery");
+    const CURLcode rc = curl_easy_perform(c);
+    char* loc = nullptr;
+    curl_easy_getinfo(c, CURLINFO_REDIRECT_URL, &loc);
+    const std::string location = loc ? loc : "";  // owned by the handle: copy before cleanup
+    curl_easy_cleanup(c);
+
+    if (rc != CURLE_OK) {
+        Log::warn("update", std::string("release check: ") + curl_easy_strerror(rc));
+        return "";
+    }
+    const std::string key = "/releases/tag/";
+    const size_t p = location.find(key);
+    if (p == std::string::npos) {
+        Log::warn("update", "no release found (" + (location.empty() ? std::string("no redirect") : location) + ")");
+        return "";
+    }
+    const std::string tag = location.substr(p + key.size());
+    Log::info("update", "latest release " + tag);
+    return tag;
+}
 }  // namespace Net

@@ -5,6 +5,11 @@
 #include <strings.h>
 #include <algorithm>
 #include <cstdint>
+#include <cerrno>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <unistd.h>
 #include "CarouselScreen.h"
 #include "DialogScreen.h"
 #include "DownloadScreen.h"
@@ -21,7 +26,29 @@
 namespace {
 const char* ES_SETTINGS_PATH = "/home/ark/.emulationstation/es_settings.cfg";
 const char* ES_INPUT_PATH    = "/etc/emulationstation/es_input.cfg";
+const char* UPDATE_REPO      = "djparentx/ThemeGallery";
+const char* UPDATE_URL       = "https://github.com/djparentx/ThemeGallery/releases/latest/download/ThemeGallery.zip";
+
+// true if a > b; "v1.2.3" style, leading v optional, missing parts count as 0
+bool newerVersion(const std::string& a, const std::string& b) {
+    auto parts = [](const std::string& v) {
+        std::vector<long> out;
+        size_t i = (!v.empty() && (v[0] == 'v' || v[0] == 'V')) ? 1 : 0;
+        while (i <= v.size()) {
+            size_t dot = v.find('.', i);
+            if (dot == std::string::npos) dot = v.size();
+            out.push_back(std::strtol(v.substr(i, dot - i).c_str(), nullptr, 10));
+            i = dot + 1;
+        }
+        return out;
+    };
+    std::vector<long> pa = parts(a), pb = parts(b);
+    const size_t n = std::max(pa.size(), pb.size());
+    pa.resize(n, 0);
+    pb.resize(n, 0);
+    return pa > pb;  // lexicographic over numeric parts
 }
+}  // namespace
 
 int App::run() {
     if (!init()) {
@@ -59,6 +86,13 @@ int App::run() {
                 message("Offline", "Internet Required to Download - Browsing Only");
                 applyPending();
             }
+        }
+
+        // background update finished: ask once, when nothing else is on screen
+        if (updateReady_ && !updatePrompted_ && overlays_.empty() && pendingPush_.empty()) {
+            updatePrompted_ = true;
+            promptUpdate();
+            applyPending();
         }
         images->pump();
 
@@ -183,10 +217,17 @@ bool App::init() {
     images = std::make_unique<ImageCache>(ren, gallery, lay.preview.h, lay.thumbH);
     applyView(state.view);
 
-    netThread_ = std::thread([this] {
+    const std::string updatedFlag = appDir + ".updated";  // written by the launcher after installing update.zip
+    if (access(updatedFlag.c_str(), F_OK) == 0) {
+        std::remove(updatedFlag.c_str());
+        message("Update complete", std::string("ThemeGallery ") + TG_VERSION + " is installed.");
+    }
+
+    netThread_ = std::thread([this, appDir] {
         const int result = Net::checkInternet() ? NET_ONLINE : NET_OFFLINE;
         int expected = NET_CHECKING;
         netState_.compare_exchange_strong(expected, result);  // a user-started check may have answered first
+        if (result == NET_ONLINE) checkForUpdate(appDir);     // silent; shutdown cancels it
     });
     return true;
 }
@@ -199,6 +240,7 @@ void App::shutdown() {
     icons.reset();
     text.reset();
     input_.close();
+    updateCancel_ = true;  // aborts a running update download
     if (netThread_.joinable()) netThread_.join();
     if (cleanupThread_.joinable()) cleanupThread_.join();
     for (TTF_Font* f : {fonts.header, fonts.title, fonts.body, fonts.bodyBold, fonts.small, fonts.smallBold, fonts.tiny})
@@ -391,6 +433,57 @@ void App::message(const std::string& title, const std::string& msg) {
     spec.message = msg;
     spec.buttons = {{"OK", nullptr}};
     pushOverlay(std::make_unique<DialogScreen>(*this, std::move(spec)));
+}
+
+void App::promptUpdate() {
+    DialogSpec spec;
+    spec.title = "Install update now?";
+    spec.message = "ThemeGallery " + latestTag_ + " has been downloaded.";
+    spec.buttons = {{"Yes",
+                     [this] {
+                         // the launcher installs update.zip and reopens when this marker exists
+                         const std::string marker = Paths::appDir() + ".install_update";
+                         if (FILE* f = std::fopen(marker.c_str(), "w")) {
+                             std::fclose(f);
+                             requestExit();
+                         } else {
+                             Log::warn("update", marker + ": " + std::strerror(errno));
+                             message("Update Failed", "Could not write " + marker + ". The update will install on next launch.");
+                         }
+                     }},
+                    {"No", nullptr}};
+    pushOverlay(std::make_unique<DialogScreen>(*this, std::move(spec)));
+}
+
+void App::checkForUpdate(const std::string& appDir) {
+    const std::string zip = appDir + "update.zip";
+    const std::string part = zip + ".part";
+    std::remove(part.c_str());  // leftover from an interrupted download
+    if (access(zip.c_str(), F_OK) == 0) {
+        Log::info("update", "update.zip already waiting");
+        return;
+    }
+    const std::string tag = Net::latestTag(UPDATE_REPO);
+    if (tag.empty()) return;
+    if (!newerVersion(tag, TG_VERSION)) {
+        Log::info("update", std::string("up to date (") + TG_VERSION + ")");
+        return;
+    }
+    Log::info("update", std::string(TG_VERSION) + " -> " + tag + ", downloading");
+    std::atomic<uint64_t> received{0}, total{0};
+    std::string error;
+    if (!Net::download(UPDATE_URL, part, updateCancel_, received, total, error)) {
+        std::remove(part.c_str());  // Net logged the reason
+        return;
+    }
+    if (std::rename(part.c_str(), zip.c_str()) != 0) {
+        Log::warn("update", "rename " + part + ": " + std::strerror(errno));
+        std::remove(part.c_str());
+        return;
+    }
+    latestTag_ = tag;
+    updateReady_ = true;
+    Log::info("update", tag + " ready");
 }
 
 void App::openThemeActions() {
