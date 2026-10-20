@@ -20,16 +20,22 @@ say() {
     if [ -w /dev/tty1 ]; then printf '%s\n' "$2" > /dev/tty1; fi
 }
 
-# fetch URL DEST: curl if present, else wget
+# fetch URL DEST: curl if present, else wget; progress goes to /dev/tty1 when writable, else the log
 fetch() {
+    local out="$ULOG" rc
+    if [ -w /dev/tty1 ]; then out=/dev/tty1; fi
     if command -v curl > /dev/null 2>&1; then
-        curl -fsSL --connect-timeout 15 -o "$2" "$1"
+        curl -fSL --connect-timeout 15 -o "$2" "$1" 2>> "$out"
+        rc=$?
     elif command -v wget > /dev/null 2>&1; then
-        wget -q -T 15 -O "$2" "$1"
+        wget -T 15 --progress=dot:mega -O "$2" "$1" 2>> "$out"
+        rc=$?
     else
         log ERROR "neither curl nor wget found"
         return 1
     fi
+    if [ "$rc" -ne 0 ]; then log ERROR "download $1 failed (exit $rc)"; fi
+    return "$rc"
 }
 
 # install_zip ZIP: unzip to $WORK, replace Images/ and patches/, copy over $TG_DIR
@@ -71,7 +77,7 @@ if [ ! -d "$TG_DIR" ]; then
     zip="$TOOLS/ThemeGallery.zip"
     if [ -w /dev/tty1 ]; then printf '\033c' > /dev/tty1; fi
     say INFO "ThemeGallery: downloading latest release..."
-    if ! fetch "$ZIP_URL" "$zip" >> "$ULOG" 2>&1; then
+    if ! fetch "$ZIP_URL" "$zip"; then
         say ERROR "Download failed - internet required for first run"
         rm -f "$zip"
         sleep 3
