@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 env:
-  TG_VERSION: v1.0.1  # bump per release; the Release tag must match
+  TG_VERSION: v1.0.2  # bump per release; the Release tag must match
 
 jobs:
   build:
