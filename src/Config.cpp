@@ -83,7 +83,7 @@ std::vector<std::string> listImages(const std::string& dir) {
         size_t dot = n.rfind('.');
         if (dot == std::string::npos) continue;
         std::string ext = Util::lower(n.substr(dot));
-        if (ext != ".png" && ext != ".jpg" && ext != ".jpeg") continue;
+        if (ext != ".png" && ext != ".jpg" && ext != ".jpeg" && ext != ".webp") continue;
         std::string stem = n.substr(0, dot);
         if (stem.empty() ||
             !std::all_of(stem.begin(), stem.end(), [](char c) { return std::isdigit((unsigned char)c) != 0; })) {

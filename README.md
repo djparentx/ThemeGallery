@@ -68,7 +68,7 @@ Lines starting with `;` or `#` are comments.
 ### Screenshots
 
 - Put them in `Images/<images>/`
-- Name them by number: `1.png`, `2.jpg`, `3.jpeg` and so on. They are shown in numeric order.
+- Name them by number: `1.webp`, `2.png`, `3.jpg` and so on (`.webp`, `.png`, `.jpg`, `.jpeg`). They are shown in numeric order.
 - Image 1 is the list-view thumbnail and the first preview
 - Other names are ignored (and logged)
 - Any aspect ratio works; each image keeps its own
@@ -113,7 +113,7 @@ Settings read from EmulationStation:
 
 Builds run on GitHub Actions (`.github/workflows/build.yml`) on an arm64 runner inside a `debian:trixie` container, so the binary matches the device's glibc.
 
-- SDL2_image and SDL2_ttf are built from source (PNG, JPG and SVG only)
+- SDL2_image and SDL2_ttf are built from source (PNG, JPG, WebP and SVG); libwebp is bundled in `lib/`
 - Libraries the binary needs are bundled in `lib/`, except those the device provides (SDL2, glibc, GPU/display)
 - The artifact is `ThemeGallery-aarch64.tar.gz`, containing a `Tools/` folder
 

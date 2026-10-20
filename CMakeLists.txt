@@ -15,7 +15,7 @@ find_package(Threads REQUIRED)
 include(FetchContent)
 set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
 
-# SDL2_image: built-in stb decoder for PNG/JPG, all external codecs off
+# SDL2_image: built-in stb decoder for PNG/JPG, system libwebp linked directly (so the bundler sees it), other codecs off
 set(SDL2IMAGE_BACKEND_STB ON  CACHE BOOL "" FORCE)
 set(SDL2IMAGE_PNG         ON  CACHE BOOL "" FORCE)
 set(SDL2IMAGE_JPG         ON  CACHE BOOL "" FORCE)
@@ -23,7 +23,8 @@ set(SDL2IMAGE_SVG         ON  CACHE BOOL "" FORCE)
 set(SDL2IMAGE_AVIF        OFF CACHE BOOL "" FORCE)
 set(SDL2IMAGE_JXL         OFF CACHE BOOL "" FORCE)
 set(SDL2IMAGE_TIF         OFF CACHE BOOL "" FORCE)
-set(SDL2IMAGE_WEBP        OFF CACHE BOOL "" FORCE)
+set(SDL2IMAGE_WEBP        ON  CACHE BOOL "" FORCE)
+set(SDL2IMAGE_WEBP_SHARED OFF CACHE BOOL "" FORCE)
 set(SDL2IMAGE_VENDORED    OFF CACHE BOOL "" FORCE)
 set(SDL2IMAGE_SAMPLES     OFF CACHE BOOL "" FORCE)
 set(SDL2IMAGE_TESTS       OFF CACHE BOOL "" FORCE)

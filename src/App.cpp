@@ -140,7 +140,7 @@ bool App::init() {
         Log::error("ttf", TTF_GetError());
         return false;
     }
-    const int imgFlags = IMG_INIT_PNG | IMG_INIT_JPG;
+    const int imgFlags = IMG_INIT_PNG | IMG_INIT_JPG | IMG_INIT_WEBP;
     if ((IMG_Init(imgFlags) & imgFlags) != imgFlags) Log::warn("image", IMG_GetError());
     curl_global_init(CURL_GLOBAL_DEFAULT);
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
