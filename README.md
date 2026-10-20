@@ -3,6 +3,10 @@
 EmulationStation theme browser and installer for dArkOSen (RK3326 handhelds).
 Browse themes with screenshot previews, then install, reinstall or uninstall them from GitHub without leaving the device.
 
+## Distribution
+
+**_ThemeGallery can be distributed as the complete installed package or as an installer. The launcher, `ThemeGallery.sh` will download and install the latest version if the data folder is missing. If ThemeGallery is distributed as a complete install it updates on the first run. The updates are backgrounded and non-blocking and can be applied immediately or deferred to next launch._**
+
 ## Features
 
 - Carousel view with full-screen previews, or a compact list view with thumbnails
@@ -104,7 +108,7 @@ Settings read from EmulationStation:
 
 ## Requirements
 
-- dArkOSen (Debian Trixie, aarch64) with SDL2 (KMSDRM, GLES)
+- ArkOS/dArkOS/dArkOSen/dArkOSRE/(d)ArkOS4Clone (Ubuntu/Debian aarch64) with SDL2 (KMSDRM, GLES)
 - `unzip`
 - CA certificates at `/etc/ssl/certs/ca-certificates.crt` for HTTPS downloads
 - An internet connection to download (browsing works offline)
