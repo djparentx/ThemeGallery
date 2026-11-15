@@ -52,7 +52,7 @@ mkdir -p "$APP/bin"
 cp /usr/bin/patch "$APP/bin/patch"
 strip "$APP/bin/patch"
 chmod +x "$APP/bin/patch"
-extra=$(ldd "$APP/bin/patch" | awk '{print $1}' | grep -Ev '^(linux-vdso|ld-linux|libc\.so)' || true)
+extra=$(ldd "$APP/bin/patch" | awk '{n=$1; sub(".*/", "", n); print n}' | grep -Ev '^(linux-vdso|ld-linux|libc\.so)' || true)
 if [ -n "$extra" ]; then
     echo "bin/patch needs more than libc: $extra"
     exit 1
