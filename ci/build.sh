@@ -7,15 +7,12 @@ TG_VERSION="${TG_VERSION:?TG_VERSION not set}"
 CMAKE_VER=3.31.6
 SDL_TAG=release-2.0.18
 
-echo "--- policy ---"
-apt-cache policy build-essential g++ dpkg-dev libc6-dev libc-dev libfreetype6-dev zlib1g-dev libz-dev libpng-dev
-echo "--- madison ---"
-apt-cache madison libc6-dev g++ dpkg-dev 2>&1
-echo "--- dpkg audit ---"
-dpkg --audit 2>&1
-
 # buster is archived
-echo 'deb http://archive.debian.org/debian buster main' > /etc/apt/sources.list
+cat > /etc/apt/sources.list << 'EOF'
+deb http://archive.debian.org/debian buster main
+deb http://archive.debian.org/debian buster-updates main
+deb http://archive.debian.org/debian-security buster/updates main
+EOF
 apt-get -o Acquire::Check-Valid-Until=false update
 apt-get install -y --no-install-recommends \
     build-essential git ca-certificates curl \
