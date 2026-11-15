@@ -1,5 +1,6 @@
 #include "Installer.h"
 #include "Log.h"
+#include "Paths.h"
 #include <cerrno>
 #include <chrono>
 #include <csignal>
@@ -85,7 +86,7 @@ bool extract(const std::string& zip, const std::string& outDir, const std::atomi
 
 bool applyPatch(const std::string& root, const std::string& patchFile, std::string& error) {
     for (const bool dry : {true, false}) {
-        std::vector<std::string> args = {"/usr/bin/patch", "-p1", "--forward", "--batch",
+        std::vector<std::string> args = {Paths::appDir() + "bin/patch", "-p1", "--forward", "--batch",
                                          "--no-backup-if-mismatch", "--reject-file=-", "-d", root, "-i", patchFile};
         if (dry) args.push_back("--dry-run");
         const int code = runTool(args, false, nullptr, error);  // patch's own messages go to the log
