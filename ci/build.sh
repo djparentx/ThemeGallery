@@ -7,6 +7,10 @@ TG_VERSION="${TG_VERSION:?TG_VERSION not set}"
 CMAKE_VER=3.31.6
 SDL_TAG=release-2.0.18
 
+echo "--- sources.list.d ---"; ls -la /etc/apt/sources.list.d/ 2>&1; cat /etc/apt/sources.list.d/*.list 2>&1
+echo "--- sources.list ---"; cat /etc/apt/sources.list
+echo "--- arch ---"; dpkg --print-architecture; dpkg --print-foreign-architectures
+
 # buster is archived
 echo 'deb http://archive.debian.org/debian buster main' > /etc/apt/sources.list
 apt-get -o Acquire::Check-Valid-Until=false update
